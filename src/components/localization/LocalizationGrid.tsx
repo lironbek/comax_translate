@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Download, Pencil, Check, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -67,84 +68,121 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
   };
 
   return (
-    <Card>
-      <div className="p-4 border-b border-border flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          Found {localData.length} {localData.length === 1 ? 'record' : 'records'}
+    <TooltipProvider>
+      <Card>
+        <div className="p-4 border-b border-border flex justify-between items-center">
+          <div className="text-sm text-muted-foreground">
+            Found {localData.length} {localData.length === 1 ? 'record' : 'records'}
+          </div>
+          <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
+            <Download className="h-4 w-4" />
+            Export to Excel
+          </Button>
         </div>
-        <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
-          <Download className="h-4 w-4" />
-          Export to Excel
-        </Button>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Resource Type</TableHead>
-              <TableHead>Culture Code</TableHead>
-              <TableHead>Resource Key</TableHead>
-              <TableHead>Resource Value</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {localData.length === 0 ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No records found. Try adjusting your search filters.
-                </TableCell>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TableHead className="cursor-help">Resource Type</TableHead>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>סוג המשאב - מזהה לוגי של קבוצת מחרוזות</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TableHead className="cursor-help">Culture Code</TableHead>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>קוד שפה - קוד השפה/אזור לפי תקן</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TableHead className="cursor-help">Resource Key</TableHead>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>מפתח המשאב - שם קשיח בקוד</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TableHead className="cursor-help">Resource Value</TableHead>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>ערך המשאב - הטקסט המוצג בפועל</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TableHead className="text-right cursor-help">Actions</TableHead>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>פעולות - ערוך את ערך התרגום</p>
+                  </TooltipContent>
+                </Tooltip>
               </TableRow>
-            ) : (
-              localData.map((resource) => (
-                <TableRow key={resource.resourceId}>
-                  <TableCell className="font-medium">{resource.resourceType}</TableCell>
-                  <TableCell>{resource.cultureCode}</TableCell>
-                  <TableCell className="font-mono text-sm">{resource.resourceKey}</TableCell>
-                  <TableCell>
-                    {editingId === resource.resourceId ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="max-w-md"
-                        autoFocus
-                      />
-                    ) : (
-                      <span className={!resource.resourceValue ? 'text-muted-foreground italic' : ''}>
-                        {resource.resourceValue || '(empty)'}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {editingId === resource.resourceId ? (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleSave(resource.resourceId)}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleCancel}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEdit(resource)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
+            </TableHeader>
+            <TableBody>
+              {localData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No records found. Try adjusting your search filters.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </Card>
+              ) : (
+                localData.map((resource) => (
+                  <TableRow key={resource.resourceId}>
+                    <TableCell className="font-medium">{resource.resourceType}</TableCell>
+                    <TableCell>{resource.cultureCode}</TableCell>
+                    <TableCell className="font-mono text-sm">{resource.resourceKey}</TableCell>
+                    <TableCell>
+                      {editingId === resource.resourceId ? (
+                        <Input
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="max-w-md"
+                          autoFocus
+                        />
+                      ) : (
+                        <span className={!resource.resourceValue ? 'text-muted-foreground italic' : ''}>
+                          {resource.resourceValue || '(empty)'}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingId === resource.resourceId ? (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleSave(resource.resourceId)}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={handleCancel}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(resource)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </TooltipProvider>
   );
 }
