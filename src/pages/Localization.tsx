@@ -12,7 +12,7 @@ export default function Localization() {
     let results = [...mockLocalizationData];
 
     // Filter by resource type
-    if (filters.resourceType) {
+    if (filters.resourceType && filters.resourceType !== 'ALL') {
       results = results.filter((item) => item.resourceType === filters.resourceType);
     }
 

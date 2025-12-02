@@ -14,7 +14,7 @@ interface SearchFormProps {
 
 export function SearchForm({ onSearch }: SearchFormProps) {
   const [filters, setFilters] = useState<SearchFilters>({
-    resourceType: '',
+    resourceType: 'ALL',
     cultureCode: 'ALL',
     resourceKey: '',
     resourceValue: '',
@@ -41,7 +41,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
                   <SelectValue placeholder="Select resource type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="ALL">All Types</SelectItem>
                   {RESOURCE_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
