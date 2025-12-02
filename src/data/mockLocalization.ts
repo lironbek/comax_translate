@@ -1,0 +1,88 @@
+import { LocalizationResource } from '@/types/localization';
+
+export const mockLocalizationData: LocalizationResource[] = [
+  {
+    resourceId: 1,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'he-IL',
+    resourceKey: 'Code_Login_Incorrect',
+    resourceValue: 'שם משתמש או סיסמה שגויים',
+  },
+  {
+    resourceId: 2,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'en-US',
+    resourceKey: 'Code_Login_Incorrect',
+    resourceValue: 'Incorrect username or password',
+  },
+  {
+    resourceId: 3,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'ro-RO',
+    resourceKey: 'Code_Login_Incorrect',
+    resourceValue: '',
+  },
+  {
+    resourceId: 4,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'he-IL',
+    resourceKey: 'Button_Submit',
+    resourceValue: 'שלח',
+  },
+  {
+    resourceId: 5,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'en-US',
+    resourceKey: 'Button_Submit',
+    resourceValue: 'Submit',
+  },
+  {
+    resourceId: 6,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'ro-RO',
+    resourceKey: 'Button_Submit',
+    resourceValue: 'Trimite',
+  },
+  {
+    resourceId: 7,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'he-IL',
+    resourceKey: 'Label_Welcome',
+    resourceValue: 'ברוכים הבאים',
+  },
+  {
+    resourceId: 8,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'en-US',
+    resourceKey: 'Label_Welcome',
+    resourceValue: 'Welcome',
+  },
+  {
+    resourceId: 9,
+    resourceType: 'SmartPhone_Picking_APP',
+    cultureCode: 'ro-RO',
+    resourceKey: 'Label_Welcome',
+    resourceValue: '',
+  },
+  {
+    resourceId: 10,
+    resourceType: 'Warehouse_Management_APP',
+    cultureCode: 'he-IL',
+    resourceKey: 'Menu_Dashboard',
+    resourceValue: 'לוח בקרה',
+  },
+  {
+    resourceId: 11,
+    resourceType: 'Warehouse_Management_APP',
+    cultureCode: 'en-US',
+    resourceKey: 'Menu_Dashboard',
+    resourceValue: 'Dashboard',
+  },
+  {
+    resourceId: 12,
+    resourceType: 'Warehouse_Management_APP',
+    cultureCode: 'ro-RO',
+    resourceKey: 'Menu_Dashboard',
+    resourceValue: 'Tablou de bord',
+  },
+];
