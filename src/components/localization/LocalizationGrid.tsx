@@ -67,6 +67,24 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
     });
   };
 
+  const handleExportJSON = () => {
+    const jsonContent = JSON.stringify(localData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `localization_export_${new Date().toISOString().split('T')[0]}.json`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: 'ייצוא הצליח',
+      description: 'הנתונים יוצאו לקובץ JSON.',
+    });
+  };
+
   return (
     <TooltipProvider>
       <Card>
@@ -74,10 +92,16 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
           <div className="text-sm text-muted-foreground">
             Found {localData.length} {localData.length === 1 ? 'record' : 'records'}
           </div>
-          <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
-            <Download className="h-4 w-4" />
-            Export to Excel
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExportJSON} variant="outline" size="sm" className="gap-2">
+              <Download className="h-4 w-4" />
+              ייצוא ל-JSON
+            </Button>
+            <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
+              <Download className="h-4 w-4" />
+              Export to Excel
+            </Button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <Table>
