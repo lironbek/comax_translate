@@ -51,9 +51,9 @@ export default function Localization() {
             <Languages className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Localization Management</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Comax - ניהול תרגומים</h1>
             <p className="text-muted-foreground">
-              Manage translations for all applications and languages
+              ניהול תרגומים לכל האפליקציות והשפות
             </p>
           </div>
         </div>
