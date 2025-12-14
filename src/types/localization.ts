@@ -42,6 +42,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'he-IL', name: 'עברית (he-IL)' },
   { code: 'en-US', name: 'English (en-US)' },
   { code: 'ro-RO', name: 'Română (ro-RO)' },
+  { code: 'th-TH', name: 'ไทย (th-TH)' },
 ] as const;
 
 export const RESOURCE_TYPES = [

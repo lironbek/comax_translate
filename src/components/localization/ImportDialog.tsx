@@ -52,7 +52,7 @@ export function ImportDialog({ onImport }: ImportDialogProps) {
       }
 
       // Validate culture code
-      const validCultures = ['he-IL', 'en-US', 'ro-RO'];
+      const validCultures = ['he-IL', 'en-US', 'ro-RO', 'th-TH'];
       if (!validCultures.includes(String(cultureCode))) {
         throw new Error(`שורה ${i + 1}: קוד שפה לא תקין "${cultureCode}". ערכים תקינים: ${validCultures.join(', ')}`);
       }

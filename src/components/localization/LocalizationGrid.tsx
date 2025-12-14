@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Download, Pencil, Check, X } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Download, Pencil, Check, X, FileJson, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ImportDialog } from './ImportDialog';
 import { createAuditLog } from '@/services/auditService';
@@ -153,14 +154,25 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
           </div>
           <div className="flex gap-2">
             <ImportDialog onImport={handleImport} />
-            <Button onClick={handleExportJSON} variant="outline" size="sm" className="gap-2">
-              <Download className="h-4 w-4" />
-              ייצוא JSON
-            </Button>
-            <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
-              <Download className="h-4 w-4" />
-              ייצוא Excel
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="h-4 w-4" />
+                  ייצוא נתונים
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportJSON} className="gap-2 cursor-pointer">
+                  <FileJson className="h-4 w-4" />
+                  ייצוא ל-JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExport} className="gap-2 cursor-pointer">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  ייצוא ל-Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         <div className="overflow-x-auto">
