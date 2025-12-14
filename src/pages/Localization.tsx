@@ -1,15 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SearchForm } from '@/components/localization/SearchForm';
 import { LocalizationGrid } from '@/components/localization/LocalizationGrid';
 import { AuditLogView } from '@/components/localization/AuditLogView';
 import { SearchFilters, LocalizationResource } from '@/types/localization';
 import { mockLocalizationData } from '@/data/mockLocalization';
-import { Languages, History } from 'lucide-react';
+import { Languages, History, LogOut } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Localization() {
   const [allData, setAllData] = useState<LocalizationResource[]>(mockLocalizationData);
   const [filteredData, setFilteredData] = useState<LocalizationResource[]>(mockLocalizationData);
+  const { user, logout, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   const handleSearch = (filters: SearchFilters) => {
     let results = [...allData];
@@ -54,15 +70,28 @@ export default function Localization() {
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       <div className="container mx-auto py-8 px-4 space-y-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-lg bg-primary text-primary-foreground">
-            <Languages className="h-6 w-6" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <Languages className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Comax - ניהול תרגומים</h1>
+              <p className="text-muted-foreground">
+                ניהול תרגומים לכל האפליקציות והשפות
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Comax - ניהול תרגומים</h1>
-            <p className="text-muted-foreground">
-              ניהול תרגומים לכל האפליקציות והשפות
-            </p>
+          <div className="flex items-center gap-3">
+            {user && (
+              <span className="text-sm text-muted-foreground">
+                שלום, {user.displayName}
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              יציאה
+            </Button>
           </div>
         </div>
 
