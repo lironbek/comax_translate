@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Download, Pencil, Check, X, FileJson, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Download, Pencil, Check, X, FileJson, FileSpreadsheet, ChevronDown, History } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ImportDialog } from './ImportDialog';
+import { RowAuditLogDialog } from './RowAuditLogDialog';
 import { createAuditLog } from '@/services/auditService';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
@@ -263,13 +264,20 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
                           </Button>
                         </div>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(resource)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEdit(resource)}
+                            title="עריכה"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <RowAuditLogDialog 
+                            recordId={String(resource.resourceId)} 
+                            resourceKey={resource.resourceKey} 
+                          />
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
