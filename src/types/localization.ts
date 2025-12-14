@@ -1,4 +1,5 @@
 export interface LocalizationResource {
+  id?: string;
   resourceId: number;
   resourceType: string;
   cultureCode: string;
@@ -12,6 +13,28 @@ export interface SearchFilters {
   resourceKey: string;
   resourceValue: string;
   onlyEmptyValues: boolean;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id?: string;
+  username: string;
+  action_type: 'CREATE' | 'UPDATE' | 'DELETE' | 'IMPORT';
+  table_name: string;
+  record_id?: string;
+  old_value?: Record<string, unknown>;
+  new_value?: Record<string, unknown>;
+  description?: string;
+  created_at: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  display_name?: string;
+  role: 'admin' | 'translator' | 'viewer';
+  created_at: string;
+  updated_at: string;
 }
 
 export const SUPPORTED_LANGUAGES = [

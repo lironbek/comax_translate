@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { SearchForm } from '@/components/localization/SearchForm';
 import { LocalizationGrid } from '@/components/localization/LocalizationGrid';
+import { AuditLogView } from '@/components/localization/AuditLogView';
 import { SearchFilters, LocalizationResource } from '@/types/localization';
 import { mockLocalizationData } from '@/data/mockLocalization';
-import { Languages } from 'lucide-react';
+import { Languages, History } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Localization() {
+  const [allData, setAllData] = useState<LocalizationResource[]>(mockLocalizationData);
   const [filteredData, setFilteredData] = useState<LocalizationResource[]>(mockLocalizationData);
 
   const handleSearch = (filters: SearchFilters) => {
-    let results = [...mockLocalizationData];
+    let results = [...allData];
 
     // Filter by resource type
     if (filters.resourceType && filters.resourceType !== 'ALL') {
@@ -43,8 +46,13 @@ export default function Localization() {
     setFilteredData(results);
   };
 
+  const handleDataChange = (newData: LocalizationResource[]) => {
+    setAllData(newData);
+    setFilteredData(newData);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" dir="rtl">
       <div className="container mx-auto py-8 px-4 space-y-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 rounded-lg bg-primary text-primary-foreground">
@@ -58,8 +66,27 @@ export default function Localization() {
           </div>
         </div>
 
-        <SearchForm onSearch={handleSearch} />
-        <LocalizationGrid data={filteredData} />
+        <Tabs defaultValue="translations" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="translations" className="gap-2">
+              <Languages className="h-4 w-4" />
+              תרגומים
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="gap-2">
+              <History className="h-4 w-4" />
+              לוג פעילות
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="translations" className="space-y-4">
+            <SearchForm onSearch={handleSearch} />
+            <LocalizationGrid data={filteredData} onDataChange={handleDataChange} />
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <AuditLogView />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

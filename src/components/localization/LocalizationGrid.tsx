@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LocalizationResource } from '@/types/localization';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -7,37 +7,96 @@ import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Download, Pencil, Check, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { ImportDialog } from './ImportDialog';
+import { createAuditLog } from '@/services/auditService';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface LocalizationGridProps {
   data: LocalizationResource[];
+  onDataChange?: (data: LocalizationResource[]) => void;
 }
 
-export function LocalizationGrid({ data }: LocalizationGridProps) {
+export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
   const [localData, setLocalData] = useState(data);
+  const { currentUser } = useCurrentUser();
+
+  useEffect(() => {
+    setLocalData(data);
+  }, [data]);
 
   const handleEdit = (resource: LocalizationResource) => {
     setEditingId(resource.resourceId);
     setEditValue(resource.resourceValue);
   };
 
-  const handleSave = (resourceId: number) => {
-    setLocalData((prev) =>
-      prev.map((item) =>
-        item.resourceId === resourceId ? { ...item, resourceValue: editValue } : item
-      )
+  const handleSave = async (resourceId: number) => {
+    const oldResource = localData.find(item => item.resourceId === resourceId);
+    const newData = localData.map((item) =>
+      item.resourceId === resourceId ? { ...item, resourceValue: editValue } : item
     );
+    
+    setLocalData(newData);
+    onDataChange?.(newData);
     setEditingId(null);
+
+    // Create audit log
+    await createAuditLog({
+      username: currentUser.username,
+      action_type: 'UPDATE',
+      table_name: 'localization_resources',
+      record_id: String(resourceId),
+      old_value: JSON.parse(JSON.stringify(oldResource)),
+      new_value: JSON.parse(JSON.stringify({ ...oldResource, resourceValue: editValue })),
+      description: `עריכת ערך תרגום: ${oldResource?.resourceKey}`,
+    });
+
     toast({
-      title: 'Translation updated',
-      description: 'The resource value has been saved successfully.',
+      title: 'התרגום עודכן',
+      description: 'ערך התרגום נשמר בהצלחה.',
     });
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setEditValue('');
+  };
+
+  const handleImport = async (importedData: LocalizationResource[]) => {
+    // Merge imported data with existing data
+    const mergedData = [...localData];
+    let addedCount = 0;
+    let updatedCount = 0;
+
+    for (const imported of importedData) {
+      const existingIndex = mergedData.findIndex(
+        item => 
+          item.resourceType === imported.resourceType &&
+          item.cultureCode === imported.cultureCode &&
+          item.resourceKey === imported.resourceKey
+      );
+
+      if (existingIndex >= 0) {
+        mergedData[existingIndex] = { ...mergedData[existingIndex], resourceValue: imported.resourceValue };
+        updatedCount++;
+      } else {
+        mergedData.push({ ...imported, resourceId: Math.max(...mergedData.map(m => m.resourceId), 0) + 1 });
+        addedCount++;
+      }
+    }
+
+    setLocalData(mergedData);
+    onDataChange?.(mergedData);
+
+    // Create audit log for import
+    await createAuditLog({
+      username: currentUser.username,
+      action_type: 'IMPORT',
+      table_name: 'localization_resources',
+      new_value: { imported_count: importedData.length, added: addedCount, updated: updatedCount },
+      description: `ייבוא ${importedData.length} רשומות (${addedCount} חדשות, ${updatedCount} עודכנו)`,
+    });
   };
 
   const handleExport = () => {
@@ -62,8 +121,8 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
     document.body.removeChild(link);
 
     toast({
-      title: 'Export successful',
-      description: 'Localization data has been exported to CSV.',
+      title: 'ייצוא הצליח',
+      description: 'הנתונים יוצאו לקובץ Excel.',
     });
   };
 
@@ -90,16 +149,17 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
       <Card>
         <div className="p-4 border-b border-border flex justify-between items-center">
           <div className="text-sm text-muted-foreground">
-            Found {localData.length} {localData.length === 1 ? 'record' : 'records'}
+            נמצאו {localData.length} {localData.length === 1 ? 'רשומה' : 'רשומות'}
           </div>
           <div className="flex gap-2">
+            <ImportDialog onImport={handleImport} />
             <Button onClick={handleExportJSON} variant="outline" size="sm" className="gap-2">
               <Download className="h-4 w-4" />
-              ייצוא ל-JSON
+              ייצוא JSON
             </Button>
             <Button onClick={handleExport} variant="outline" size="sm" className="gap-2">
               <Download className="h-4 w-4" />
-              Export to Excel
+              ייצוא Excel
             </Button>
           </div>
         </div>
@@ -109,7 +169,7 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
               <TableRow>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">Resource Type</TableHead>
+                    <TableHead className="cursor-help">סוג משאב</TableHead>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>סוג המשאב - מזהה לוגי של קבוצת מחרוזות</p>
@@ -117,7 +177,7 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">Culture Code</TableHead>
+                    <TableHead className="cursor-help">קוד שפה</TableHead>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>קוד שפה - קוד השפה/אזור לפי תקן</p>
@@ -125,7 +185,7 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">Resource Key</TableHead>
+                    <TableHead className="cursor-help">מפתח משאב</TableHead>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>מפתח המשאב - שם קשיח בקוד</p>
@@ -133,7 +193,7 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">Resource Value</TableHead>
+                    <TableHead className="cursor-help">ערך משאב</TableHead>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>ערך המשאב - הטקסט המוצג בפועל</p>
@@ -141,7 +201,7 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableHead className="text-right cursor-help">Actions</TableHead>
+                    <TableHead className="text-right cursor-help">פעולות</TableHead>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>פעולות - ערוך את ערך התרגום</p>
@@ -153,7 +213,7 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
               {localData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No records found. Try adjusting your search filters.
+                    לא נמצאו רשומות. נסה לשנות את מסנני החיפוש.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -172,7 +232,7 @@ export function LocalizationGrid({ data }: LocalizationGridProps) {
                         />
                       ) : (
                         <span className={!resource.resourceValue ? 'text-muted-foreground italic' : ''}>
-                          {resource.resourceValue || '(empty)'}
+                          {resource.resourceValue || '(ריק)'}
                         </span>
                       )}
                     </TableCell>
