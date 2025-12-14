@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
-// Simple mock user for demonstration - in production this would be from auth
+// Use auth context for current user
 export function useCurrentUser() {
-  const [currentUser] = useState({
-    id: 'demo-user-id',
-    username: 'demo_admin',
-    display_name: 'Demo Admin',
+  const { user } = useAuth();
+  
+  const currentUser = {
+    id: 'user-id',
+    username: user?.username || 'anonymous',
+    display_name: user?.displayName || 'Anonymous',
     role: 'admin' as const,
-  });
+  };
 
   return { currentUser };
 }
