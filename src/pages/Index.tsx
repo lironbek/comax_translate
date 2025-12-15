@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Languages, LogIn } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { Languages, LogIn, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
   // If already authenticated, redirect to localization
@@ -20,25 +20,20 @@ const Index = () => {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!username.trim() || !password.trim()) {
-      toast({
-        title: 'שגיאה',
-        description: 'יש להזין שם משתמש וסיסמה',
-        variant: 'destructive',
-      });
+      toast.error('יש להזין שם משתמש וסיסמה');
       return;
     }
 
-    const success = login(username, password);
-    if (success) {
-      toast({
-        title: 'התחברות הצליחה',
-        description: `ברוך הבא, ${username}!`,
-      });
+    const result = await login(username, password);
+    if (result.success) {
+      toast.success(`ברוך הבא, ${username}!`);
       navigate('/localization');
+    } else {
+      toast.error(result.error || 'שגיאה בהתחברות');
     }
   };
 
@@ -67,6 +62,7 @@ const Index = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -78,11 +74,16 @@ const Index = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                disabled={isLoading}
               />
             </div>
-            <Button type="submit" className="w-full gap-2">
-              <LogIn className="h-4 w-4" />
-              התחבר
+            <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogIn className="h-4 w-4" />
+              )}
+              {isLoading ? 'מתחבר...' : 'התחבר'}
             </Button>
           </form>
         </CardContent>
