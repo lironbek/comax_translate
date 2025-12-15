@@ -129,7 +129,11 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
   };
 
   const handleExportJSON = () => {
-    const jsonContent = JSON.stringify(localData, null, 2);
+    const exportData = localData.map(item => ({
+      key: item.resourceKey,
+      value: item.resourceValue || ''
+    }));
+    const jsonContent = JSON.stringify(exportData, null, 4);
     const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
