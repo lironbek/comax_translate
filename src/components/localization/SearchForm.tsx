@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,13 +7,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Search } from 'lucide-react';
-import { SearchFilters, SUPPORTED_LANGUAGES, RESOURCE_TYPES } from '@/types/localization';
+import { SearchFilters, SUPPORTED_LANGUAGES } from '@/types/localization';
+import { supabase } from '@/integrations/supabase/client';
+import { Application } from '@/types/application';
 
 interface SearchFormProps {
   onSearch: (filters: SearchFilters) => void;
+  onCultureCodeChange?: (cultureCode: string) => void;
 }
 
-export function SearchForm({ onSearch }: SearchFormProps) {
+export function SearchForm({ onSearch, onCultureCodeChange }: SearchFormProps) {
   const [filters, setFilters] = useState<SearchFilters>({
     resourceType: 'ALL',
     cultureCode: 'ALL',
@@ -21,6 +24,22 @@ export function SearchForm({ onSearch }: SearchFormProps) {
     resourceValue: '',
     onlyEmptyValues: false,
   });
+  const [applications, setApplications] = useState<Application[]>([]);
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      const { data, error } = await supabase
+        .from('applications')
+        .select('*')
+        .order('application_name', { ascending: true });
+      
+      if (!error && data) {
+        setApplications(data);
+      }
+    };
+
+    fetchApplications();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,9 +70,9 @@ export function SearchForm({ onSearch }: SearchFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">All Types</SelectItem>
-                    {RESOURCE_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
+                    {applications.map((app) => (
+                      <SelectItem key={app.id} value={app.application_code}>
+                        {app.application_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -71,7 +90,12 @@ export function SearchForm({ onSearch }: SearchFormProps) {
                 </Tooltip>
                 <Select
                   value={filters.cultureCode}
-                  onValueChange={(value) => setFilters({ ...filters, cultureCode: value })}
+                  onValueChange={(value) => {
+                    setFilters({ ...filters, cultureCode: value });
+                    onCultureCodeChange?.(value);
+                    // Auto-search when culture code changes
+                    onSearch({ ...filters, cultureCode: value });
+                  }}
                 >
                   <SelectTrigger id="cultureCode">
                     <SelectValue />

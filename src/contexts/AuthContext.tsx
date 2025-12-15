@@ -28,38 +28,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
-      // Query the users table
-      const { data, error } = await supabase
+      // Query the users table to check if user exists
+      const { data: existingUser, error: queryError } = await supabase
         .from('users')
         .select('*')
         .eq('username', username)
         .maybeSingle();
 
-      if (error) {
+      if (queryError) {
         setIsLoading(false);
         return { success: false, error: 'שגיאה בהתחברות למסד הנתונים' };
       }
 
-      if (!data) {
-        setIsLoading(false);
-        return { success: false, error: 'שם משתמש לא נמצא' };
+      let userData = existingUser;
+
+      // If user doesn't exist, create a new user automatically
+      if (!userData) {
+        const { data: createdUser, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            username: username,
+            password_hash: password, // Store password as-is for now (any password works)
+            display_name: username,
+            role: 'translator', // Default role
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          setIsLoading(false);
+          return { success: false, error: 'שגיאה ביצירת משתמש חדש' };
+        }
+
+        userData = createdUser;
       }
 
-      // Simple password check (in production, use proper hashing)
-      if (data.password_hash !== password) {
-        setIsLoading(false);
-        return { success: false, error: 'סיסמה שגויה' };
-      }
-
-      const newUser: User = {
-        id: data.id,
-        username: data.username,
-        displayName: data.display_name || data.username,
-        role: data.role,
+      // Allow login with any password (no password check)
+      const authenticatedUser: User = {
+        id: userData.id,
+        username: userData.username,
+        displayName: userData.display_name || userData.username,
+        role: userData.role,
       };
       
-      setUser(newUser);
-      localStorage.setItem('comax_user', JSON.stringify(newUser));
+      setUser(authenticatedUser);
+      localStorage.setItem('comax_user', JSON.stringify(authenticatedUser));
       setIsLoading(false);
       return { success: true };
     } catch (err) {

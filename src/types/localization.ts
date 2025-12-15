@@ -7,6 +7,17 @@ export interface LocalizationResource {
   resourceValue: string;
 }
 
+export interface LocalizationRow {
+  resourceKey: string;
+  resourceType: string;
+  translations: {
+    'he-IL'?: { id?: string; value: string };
+    'en-US'?: { id?: string; value: string };
+    'ro-RO'?: { id?: string; value: string };
+    'th-TH'?: { id?: string; value: string };
+  };
+}
+
 export interface SearchFilters {
   resourceType: string;
   cultureCode: string;

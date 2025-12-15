@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LocalizationResource } from '@/types/localization';
+import { LocalizationRow, SUPPORTED_LANGUAGES } from '@/types/localization';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +12,23 @@ import { ImportDialog } from './ImportDialog';
 import { RowAuditLogDialog } from './RowAuditLogDialog';
 import { createAuditLog } from '@/services/auditService';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LocalizationGridProps {
-  data: LocalizationResource[];
-  onDataChange?: (data: LocalizationResource[]) => void;
+  data: LocalizationRow[];
+  onDataChange?: (data: LocalizationRow[]) => void;
+  selectedCultureCode?: string;
+  organizationId?: string;
 }
 
-export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) {
-  const [editingId, setEditingId] = useState<number | null>(null);
+interface EditingState {
+  resourceKey: string;
+  cultureCode: string;
+  value: string;
+}
+
+export function LocalizationGrid({ data, onDataChange, selectedCultureCode, organizationId }: LocalizationGridProps) {
+  const [editing, setEditing] = useState<EditingState | null>(null);
   const [editValue, setEditValue] = useState('');
   const [localData, setLocalData] = useState(data);
   const { currentUser } = useCurrentUser();
@@ -28,90 +37,264 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
     setLocalData(data);
   }, [data]);
 
-  const handleEdit = (resource: LocalizationResource) => {
-    setEditingId(resource.resourceId);
-    setEditValue(resource.resourceValue);
+  const handleEdit = (resourceKey: string, cultureCode: string, currentValue: string) => {
+    setEditing({ resourceKey, cultureCode, value: currentValue });
+    setEditValue(currentValue);
   };
 
-  const handleSave = async (resourceId: number) => {
-    const oldResource = localData.find(item => item.resourceId === resourceId);
-    const newData = localData.map((item) =>
-      item.resourceId === resourceId ? { ...item, resourceValue: editValue } : item
-    );
-    
-    setLocalData(newData);
-    onDataChange?.(newData);
-    setEditingId(null);
+  const handleSave = async (resourceKey: string, cultureCode: string) => {
+    const row = localData.find(item => item.resourceKey === resourceKey);
+    if (!row) {
+      toast({
+        title: 'שגיאה',
+        description: 'לא נמצאה רשומה',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-    // Create audit log
-    await createAuditLog({
-      username: currentUser.username,
-      action_type: 'UPDATE',
-      table_name: 'localization_resources',
-      record_id: String(resourceId),
-      old_value: JSON.parse(JSON.stringify(oldResource)),
-      new_value: JSON.parse(JSON.stringify({ ...oldResource, resourceValue: editValue })),
-      description: `עריכת ערך תרגום: ${oldResource?.resourceKey}`,
-    });
+    const translation = row.translations[cultureCode as keyof typeof row.translations];
+    const oldValue = translation?.value || '';
 
-    toast({
-      title: 'התרגום עודכן',
-      description: 'ערך התרגום נשמר בהצלחה.',
-    });
+    try {
+      if (translation?.id) {
+        // Update existing translation
+        const { error: updateError } = await supabase
+          .from('localization_resources')
+          .update({ resource_value: editValue })
+          .eq('id', translation.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        // Update local state
+        const newData = localData.map((item) => {
+          if (item.resourceKey === resourceKey) {
+            return {
+              ...item,
+              translations: {
+                ...item.translations,
+                [cultureCode]: { ...item.translations[cultureCode as keyof typeof item.translations], value: editValue },
+              },
+            };
+          }
+          return item;
+        });
+        
+        setLocalData(newData);
+        onDataChange?.(newData);
+
+        // Create audit log
+        await createAuditLog({
+          username: currentUser.username,
+          action_type: 'UPDATE',
+          table_name: 'localization_resources',
+          record_id: translation.id,
+          old_value: { resource_key: resourceKey, culture_code: cultureCode, resource_value: oldValue },
+          new_value: { resource_key: resourceKey, culture_code: cultureCode, resource_value: editValue },
+          description: `עריכת תרגום ${cultureCode} עבור: ${resourceKey}`,
+        });
+      } else {
+        // Create new translation
+        if (!organizationId) {
+          throw new Error('חובה לבחור ארגון');
+        }
+
+        const { data: newRecord, error: insertError } = await supabase
+          .from('localization_resources')
+          .insert({
+            resource_type: row.resourceType,
+            culture_code: cultureCode,
+            resource_key: resourceKey,
+            resource_value: editValue,
+            organization_id: organizationId,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        // Update local state
+        const newData = localData.map((item) => {
+          if (item.resourceKey === resourceKey) {
+            return {
+              ...item,
+              translations: {
+                ...item.translations,
+                [cultureCode]: { id: newRecord.id, value: editValue },
+              },
+            };
+          }
+          return item;
+        });
+        
+        setLocalData(newData);
+        onDataChange?.(newData);
+
+        // Create audit log
+        await createAuditLog({
+          username: currentUser.username,
+          action_type: 'CREATE',
+          table_name: 'localization_resources',
+          record_id: newRecord.id,
+          new_value: { resource_key: resourceKey, culture_code: cultureCode, resource_value: editValue },
+          description: `יצירת תרגום ${cultureCode} עבור: ${resourceKey}`,
+        });
+      }
+
+      setEditing(null);
+      setEditValue('');
+
+      toast({
+        title: 'התרגום עודכן',
+        description: 'ערך התרגום נשמר בהצלחה.',
+      });
+    } catch (error) {
+      console.error('Error saving to database:', error);
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לשמור את השינויים',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleCancel = () => {
-    setEditingId(null);
+    setEditing(null);
     setEditValue('');
   };
 
-  const handleImport = async (importedData: LocalizationResource[]) => {
-    // Merge imported data with existing data
-    const mergedData = [...localData];
+  const handleImport = async (importedData: any[]) => {
     let addedCount = 0;
     let updatedCount = 0;
+    const errors: string[] = [];
 
-    for (const imported of importedData) {
-      const existingIndex = mergedData.findIndex(
-        item => 
-          item.resourceType === imported.resourceType &&
-          item.cultureCode === imported.cultureCode &&
-          item.resourceKey === imported.resourceKey
-      );
+    try {
+      // Import to Supabase
+      for (const imported of importedData) {
+        try {
+          // Check if record exists
+          const { data: existing } = await supabase
+            .from('localization_resources')
+            .select('id')
+            .eq('resource_type', imported.resourceType)
+            .eq('culture_code', imported.cultureCode)
+            .eq('resource_key', imported.resourceKey)
+            .maybeSingle();
 
-      if (existingIndex >= 0) {
-        mergedData[existingIndex] = { ...mergedData[existingIndex], resourceValue: imported.resourceValue };
-        updatedCount++;
-      } else {
-        mergedData.push({ ...imported, resourceId: Math.max(...mergedData.map(m => m.resourceId), 0) + 1 });
-        addedCount++;
+          if (existing) {
+            // Update existing
+            const { error: updateError } = await supabase
+              .from('localization_resources')
+              .update({ resource_value: imported.resourceValue })
+              .eq('id', existing.id);
+
+            if (updateError) throw updateError;
+            updatedCount++;
+          } else {
+            // Insert new
+            if (!organizationId) {
+              throw new Error('חובה לבחור ארגון');
+            }
+
+            const { error: insertError } = await supabase
+              .from('localization_resources')
+              .insert({
+                resource_type: imported.resourceType,
+                culture_code: imported.cultureCode,
+                resource_key: imported.resourceKey,
+                resource_value: imported.resourceValue,
+                organization_id: organizationId,
+              });
+
+            if (insertError) throw insertError;
+            addedCount++;
+          }
+        } catch (error) {
+          errors.push(`שגיאה בייבוא ${imported.resourceKey}: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`);
+        }
       }
+
+      // Reload data from database
+      const { data: allData, error: fetchError } = await supabase
+        .from('localization_resources')
+        .select('*')
+        .order('resource_key', { ascending: true })
+        .order('culture_code', { ascending: true });
+
+      if (!fetchError && allData) {
+        // Group by resource_key
+        const groupedData = new Map<string, LocalizationRow>();
+        
+        allData.forEach((item) => {
+          const key = item.resource_key;
+          if (!groupedData.has(key)) {
+            groupedData.set(key, {
+              resourceKey: key,
+              resourceType: item.resource_type,
+              translations: {},
+            });
+          }
+          
+          const row = groupedData.get(key)!;
+          row.translations[item.culture_code as keyof typeof row.translations] = {
+            id: item.id,
+            value: item.resource_value || '',
+          };
+        });
+
+        const resources: LocalizationRow[] = Array.from(groupedData.values());
+
+        setLocalData(resources);
+        onDataChange?.(resources);
+      }
+
+      // Create audit log for import
+      await createAuditLog({
+        username: currentUser.username,
+        action_type: 'IMPORT',
+        table_name: 'localization_resources',
+        new_value: { imported_count: importedData.length, added: addedCount, updated: updatedCount, errors: errors.length },
+        description: `ייבוא ${importedData.length} רשומות (${addedCount} חדשות, ${updatedCount} עודכנו${errors.length > 0 ? `, ${errors.length} שגיאות` : ''})`,
+      });
+
+      if (errors.length > 0) {
+        toast({
+          title: 'ייבוא הושלם עם שגיאות',
+          description: `יובאו ${addedCount + updatedCount} רשומות, ${errors.length} שגיאות`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'ייבוא הצליח',
+          description: `יובאו ${importedData.length} רשומות (${addedCount} חדשות, ${updatedCount} עודכנו)`,
+        });
+      }
+    } catch (error) {
+      console.error('Error importing data:', error);
+      toast({
+        title: 'שגיאה בייבוא',
+        description: 'לא ניתן לייבא את הנתונים',
+        variant: 'destructive',
+      });
     }
-
-    setLocalData(mergedData);
-    onDataChange?.(mergedData);
-
-    // Create audit log for import
-    await createAuditLog({
-      username: currentUser.username,
-      action_type: 'IMPORT',
-      table_name: 'localization_resources',
-      new_value: { imported_count: importedData.length, added: addedCount, updated: updatedCount },
-      description: `ייבוא ${importedData.length} רשומות (${addedCount} חדשות, ${updatedCount} עודכנו)`,
-    });
   };
 
   const handleExport = () => {
-    const headers = ['Resource Type', 'Culture Code', 'Resource Key', 'Resource Value', 'Resource ID'];
+    const headers = ['Resource Key', 'Resource Type', 'he-IL', 'en-US', 'ro-RO', 'th-TH'];
     const rows = localData.map((item) => [
-      item.resourceType,
-      item.cultureCode,
       item.resourceKey,
-      item.resourceValue,
-      item.resourceId.toString(),
+      item.resourceType,
+      item.translations['he-IL']?.value || '',
+      item.translations['en-US']?.value || '',
+      item.translations['ro-RO']?.value || '',
+      item.translations['th-TH']?.value || '',
     ]);
 
-    const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
+    const csvContent = [headers, ...rows].map((row) => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -129,16 +312,27 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
   };
 
   const handleExportJSON = () => {
+    // Use the selected culture code, or default to Hebrew if 'ALL' is selected
+    const exportCultureCode = selectedCultureCode === 'ALL' ? 'he-IL' : selectedCultureCode;
+    const languageName = SUPPORTED_LANGUAGES.find(l => l.code === exportCultureCode)?.name || exportCultureCode;
+    
+    console.log(`📦 Exporting JSON for language: ${languageName} (${exportCultureCode})`);
+    
+    // Export with English as key and selected language as value
     const exportData = localData.map(item => ({
-      key: item.resourceKey,
-      value: item.resourceValue || ''
+      key: item.translations['en-US']?.value || item.resourceKey, // English translation as key
+      value: item.translations[exportCultureCode]?.value || ''     // Selected language as value
     }));
+    
+    console.log(`✅ Exported ${exportData.length} items`);
+    console.log(`📄 Sample: ${JSON.stringify(exportData.slice(0, 2), null, 2)}`);
+    
     const jsonContent = JSON.stringify(exportData, null, 4);
     const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `localization_export_${new Date().toISOString().split('T')[0]}.json`);
+    link.setAttribute('download', `localization_export_${exportCultureCode}_${new Date().toISOString().split('T')[0]}.json`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -146,9 +340,15 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
 
     toast({
       title: 'ייצוא הצליח',
-      description: 'הנתונים יוצאו לקובץ JSON.',
+      description: `הנתונים יוצאו לקובץ JSON בשפה: ${languageName}`,
     });
   };
+
+  // Filter languages based on selected culture code
+  // Always show Hebrew (he-IL) + selected language (if not Hebrew)
+  const languages = selectedCultureCode && selectedCultureCode !== 'ALL'
+    ? SUPPORTED_LANGUAGES.filter(l => l.code === 'he-IL' || l.code === selectedCultureCode)
+    : SUPPORTED_LANGUAGES.filter(l => l.code !== 'ALL');
 
   return (
     <TooltipProvider>
@@ -158,13 +358,13 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
             נמצאו {localData.length} {localData.length === 1 ? 'רשומה' : 'רשומות'}
           </div>
           <div className="flex gap-2">
-            <ImportDialog onImport={handleImport} />
+            <div title="ייבוא נתונים">
+              <ImportDialog onImport={handleImport} />
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="icon" title="ייצוא נתונים">
                   <Download className="h-4 w-4" />
-                  ייצוא נתונים
-                  <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -184,87 +384,82 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
           <Table>
             <TableHeader>
               <TableRow>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">Key</TableHead>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>מפתח המשאב - שם קשיח בקוד</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">Value</TableHead>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>ערך המשאב - הטקסט המוצג בפועל</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TableHead className="text-right cursor-help">פעולות</TableHead>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>פעולות - ערוך את ערך התרגום</p>
-                  </TooltipContent>
-                </Tooltip>
+                <TableHead className="sticky right-0 bg-background z-10" title="מפתח המשאב - שם קשיח בקוד">
+                  Key
+                </TableHead>
+                {languages.map((lang) => (
+                  <TableHead key={lang.code} className="min-w-[350px]" title={`תרגום ל-${lang.name}`}>
+                    {lang.name}
+                  </TableHead>
+                ))}
+                <TableHead className="text-right sticky left-0 bg-background z-10" title="פעולות - ערוך את ערך התרגום">
+                  פעולות
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {localData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={languages.length + 2} className="text-center py-8 text-muted-foreground">
                     לא נמצאו רשומות. נסה לשנות את מסנני החיפוש.
                   </TableCell>
                 </TableRow>
               ) : (
-                localData.map((resource) => (
-                  <TableRow key={resource.resourceId}>
-                    <TableCell className="font-mono text-sm">{resource.resourceKey}</TableCell>
-                    <TableCell>
-                      {editingId === resource.resourceId ? (
-                        <Input
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="max-w-md"
-                          autoFocus
-                        />
-                      ) : (
-                        <span className={!resource.resourceValue ? 'text-muted-foreground italic' : ''}>
-                          {resource.resourceValue || '(ריק)'}
-                        </span>
-                      )}
+                localData.map((row) => (
+                  <TableRow key={row.resourceKey}>
+                    <TableCell className="font-mono text-sm sticky right-0 bg-background z-10">
+                      {row.resourceKey}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {editingId === resource.resourceId ? (
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleSave(resource.resourceId)}
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={handleCancel}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEdit(resource)}
-                            title="עריכה"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <RowAuditLogDialog 
-                            recordId={String(resource.resourceId)} 
-                            resourceKey={resource.resourceKey} 
-                          />
-                        </div>
-                      )}
+                    {languages.map((lang) => {
+                      const translation = row.translations[lang.code as keyof typeof row.translations];
+                      const isEditing = editing?.resourceKey === row.resourceKey && editing?.cultureCode === lang.code;
+                      const value = translation?.value || '';
+                      
+                      return (
+                        <TableCell key={lang.code} className="min-w-[350px]">
+                          {isEditing ? (
+                            <div className="flex gap-2">
+                              <Input
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="flex-1"
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleSave(row.resourceKey, lang.code)}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={handleCancel}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 group">
+                              <span className={!value ? 'text-muted-foreground italic' : ''}>
+                                {value || '(ריק)'}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEdit(row.resourceKey, lang.code, value)}
+                                title={`ערוך ${lang.name}`}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="text-right sticky left-0 bg-background z-10">
+                      <RowAuditLogDialog 
+                        recordId={row.resourceKey} 
+                        resourceKey={row.resourceKey} 
+                      />
                     </TableCell>
                   </TableRow>
                 ))

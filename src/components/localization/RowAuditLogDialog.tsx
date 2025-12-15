@@ -36,18 +36,32 @@ export function RowAuditLogDialog({ recordId, resourceKey }: RowAuditLogDialogPr
 
   const fetchLogs = async () => {
     setLoading(true);
+    
+    // Fetch logs that match either:
+    // 1. record_id matches (for direct ID match)
+    // 2. resource_key in new_value or old_value matches resourceKey
     const { data, error } = await supabase
       .from('audit_logs')
       .select('*')
-      .eq('record_id', recordId)
-      .order('created_at', { ascending: false })
-      .limit(20);
+      .eq('table_name', 'localization_resources')
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Failed to fetch audit logs:', error);
       setLogs([]);
     } else {
-      setLogs(data as AuditLogRow[]);
+      // Filter logs that match this resourceKey
+      const filteredLogs = (data as AuditLogRow[]).filter(log => {
+        const newVal = log.new_value as Record<string, unknown>;
+        const oldVal = log.old_value as Record<string, unknown>;
+        return (
+          log.record_id === recordId ||
+          newVal?.resource_key === resourceKey ||
+          oldVal?.resource_key === resourceKey
+        );
+      }).slice(0, 20); // Limit to 20 after filtering
+      
+      setLogs(filteredLogs);
     }
     setLoading(false);
   };
@@ -116,10 +130,10 @@ export function RowAuditLogDialog({ recordId, resourceKey }: RowAuditLogDialogPr
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-32 truncate">
-                      {log.old_value?.resourceValue as string || '-'}
+                      {(log.old_value as Record<string, unknown>)?.resource_value as string || '-'}
                     </TableCell>
                     <TableCell className="text-sm max-w-32 truncate">
-                      {log.new_value?.resourceValue as string || '-'}
+                      {(log.new_value as Record<string, unknown>)?.resource_value as string || '-'}
                     </TableCell>
                   </TableRow>
                 ))}

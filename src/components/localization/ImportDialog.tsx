@@ -37,32 +37,61 @@ export function ImportDialog({ onImport }: ImportDialogProps) {
   const validateData = (data: unknown[]): LocalizationResource[] => {
     const validated: LocalizationResource[] = [];
     
+    // Check if this is a simple key-value format (for mobile apps)
+    const isKeyValueFormat = data.length > 0 && 
+      typeof data[0] === 'object' && 
+      data[0] !== null &&
+      'key' in (data[0] as Record<string, unknown>) &&
+      'value' in (data[0] as Record<string, unknown>) &&
+      !('resourceType' in (data[0] as Record<string, unknown>));
+    
     for (let i = 0; i < data.length; i++) {
       const item = data[i] as Record<string, unknown>;
       
-      // Map common column names from Excel
-      const resourceType = item.resourceType || item['Resource Type'] || item.resource_type;
-      const cultureCode = item.cultureCode || item['Culture Code'] || item.culture_code;
-      const resourceKey = item.resourceKey || item['Resource Key'] || item.resource_key;
-      const resourceValue = item.resourceValue || item['Resource Value'] || item.resource_value || '';
-      const resourceId = item.resourceId || item['Resource ID'] || item.resource_id || i + 1;
-
-      if (!resourceType || !cultureCode || !resourceKey) {
-        throw new Error(`שורה ${i + 1}: חסרים שדות חובה (resourceType, cultureCode, resourceKey)`);
+      let resourceType: string;
+      let cultureCode: string;
+      let resourceKey: string;
+      let resourceValue: string;
+      let resourceId: number;
+      
+      if (isKeyValueFormat) {
+        // Simple key-value format (for mobile apps) - default to SmartPhone_Picking_APP and he-IL
+        resourceType = 'SmartPhone_Picking_APP';
+        cultureCode = 'he-IL';
+        resourceKey = String(item.key || '');
+        resourceValue = String(item.value || '');
+        resourceId = i + 1;
+      } else {
+        // Full format with all fields
+        resourceType = String(item.resourceType || item['Resource Type'] || item.resource_type || '');
+        cultureCode = String(item.cultureCode || item['Culture Code'] || item.culture_code || '');
+        resourceKey = String(item.resourceKey || item['Resource Key'] || item.resource_key || '');
+        resourceValue = String(item.resourceValue || item['Resource Value'] || item.resource_value || '');
+        resourceId = Number(item.resourceId || item['Resource ID'] || item.resource_id || i + 1);
       }
 
-      // Validate culture code
-      const validCultures = ['he-IL', 'en-US', 'ro-RO', 'th-TH'];
-      if (!validCultures.includes(String(cultureCode))) {
-        throw new Error(`שורה ${i + 1}: קוד שפה לא תקין "${cultureCode}". ערכים תקינים: ${validCultures.join(', ')}`);
+      if (!resourceKey) {
+        throw new Error(`שורה ${i + 1}: חסר שדה חובה (key או resourceKey)`);
+      }
+
+      if (!isKeyValueFormat) {
+        if (!resourceType || !cultureCode) {
+          throw new Error(`שורה ${i + 1}: חסרים שדות חובה (resourceType, cultureCode)`);
+        }
+
+        // Validate culture code
+        const validCultures = ['he-IL', 'en-US', 'ro-RO', 'th-TH'];
+        if (!validCultures.includes(cultureCode)) {
+          throw new Error(`שורה ${i + 1}: קוד שפה לא תקין "${cultureCode}". ערכים תקינים: ${validCultures.join(', ')}`);
+        }
       }
 
       validated.push({
-        resourceId: Number(resourceId),
-        resourceType: String(resourceType),
-        cultureCode: String(cultureCode),
-        resourceKey: String(resourceKey),
-        resourceValue: String(resourceValue),
+        resourceId,
+        resourceType,
+        cultureCode,
+        resourceKey,
+        resourceValue,
       });
     }
 
@@ -115,9 +144,8 @@ export function ImportDialog({ onImport }: ImportDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetState(); }}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="icon">
           <Upload className="h-4 w-4" />
-          ייבוא נתונים
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg" dir="rtl">
