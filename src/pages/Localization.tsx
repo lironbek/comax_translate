@@ -4,15 +4,17 @@ import { SearchForm } from '@/components/localization/SearchForm';
 import { LocalizationGrid } from '@/components/localization/LocalizationGrid';
 import { AuditLogView } from '@/components/localization/AuditLogView';
 import { SearchFilters, LocalizationResource } from '@/types/localization';
-import { mockLocalizationData } from '@/data/mockLocalization';
-import { Languages, History, LogOut } from 'lucide-react';
+import { Languages, History, LogOut, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export default function Localization() {
-  const [allData, setAllData] = useState<LocalizationResource[]>(mockLocalizationData);
-  const [filteredData, setFilteredData] = useState<LocalizationResource[]>(mockLocalizationData);
+  const [allData, setAllData] = useState<LocalizationResource[]>([]);
+  const [filteredData, setFilteredData] = useState<LocalizationResource[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -21,6 +23,46 @@ export default function Localization() {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
+
+  // Load data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('localization_resources')
+          .select('*')
+          .order('resource_key', { ascending: true });
+
+        if (error) {
+          toast.error('שגיאה בטעינת הנתונים');
+          console.error('Error fetching data:', error);
+          return;
+        }
+
+        const resources: LocalizationResource[] = (data || []).map((item, index) => ({
+          id: item.id,
+          resourceId: index + 1,
+          resourceType: item.resource_type,
+          cultureCode: item.culture_code,
+          resourceKey: item.resource_key,
+          resourceValue: item.resource_value || '',
+        }));
+
+        setAllData(resources);
+        setFilteredData(resources);
+      } catch (err) {
+        toast.error('שגיאה בטעינת הנתונים');
+        console.error('Error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     logout();
@@ -109,7 +151,14 @@ export default function Localization() {
 
           <TabsContent value="translations" className="space-y-4">
             <SearchForm onSearch={handleSearch} />
-            <LocalizationGrid data={filteredData} onDataChange={handleDataChange} />
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="mr-2 text-muted-foreground">טוען נתונים...</span>
+              </div>
+            ) : (
+              <LocalizationGrid data={filteredData} onDataChange={handleDataChange} />
+            )}
           </TabsContent>
 
           <TabsContent value="audit">
