@@ -16,7 +16,7 @@ const Index = () => {
 
   // If already authenticated, redirect to localization
   if (isAuthenticated) {
-    navigate('/localization');
+    window.location.href = '/localization';
     return null;
   }
 

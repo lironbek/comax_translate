@@ -186,23 +186,7 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
               <TableRow>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">סוג משאב</TableHead>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>סוג המשאב - מזהה לוגי של קבוצת מחרוזות</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">קוד שפה</TableHead>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>קוד שפה - קוד השפה/אזור לפי תקן</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">מפתח משאב</TableHead>
+                    <TableHead className="cursor-help">Key</TableHead>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>מפתח המשאב - שם קשיח בקוד</p>
@@ -210,7 +194,7 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TableHead className="cursor-help">ערך משאב</TableHead>
+                    <TableHead className="cursor-help">Value</TableHead>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>ערך המשאב - הטקסט המוצג בפועל</p>
@@ -229,15 +213,13 @@ export function LocalizationGrid({ data, onDataChange }: LocalizationGridProps) 
             <TableBody>
               {localData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     לא נמצאו רשומות. נסה לשנות את מסנני החיפוש.
                   </TableCell>
                 </TableRow>
               ) : (
                 localData.map((resource) => (
                   <TableRow key={resource.resourceId}>
-                    <TableCell className="font-medium">{resource.resourceType}</TableCell>
-                    <TableCell>{resource.cultureCode}</TableCell>
                     <TableCell className="font-mono text-sm">{resource.resourceKey}</TableCell>
                     <TableCell>
                       {editingId === resource.resourceId ? (
