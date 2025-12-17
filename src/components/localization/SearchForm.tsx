@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,17 +6,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import { Search, X, ChevronDown, Check } from 'lucide-react';
 import { SearchFilters, SUPPORTED_LANGUAGES } from '@/types/localization';
 import { supabase } from '@/integrations/supabase/client';
 import { Application } from '@/types/application';
+import { cn } from '@/lib/utils';
 
 interface SearchFormProps {
   onSearch: (filters: SearchFilters) => void;
-  onCultureCodeChange?: (cultureCode: string) => void;
+  onCultureCodesChange?: (cultureCodes: string[]) => void;
 }
 
-export function SearchForm({ onSearch, onCultureCodeChange }: SearchFormProps) {
+export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) {
   const [filters, setFilters] = useState<SearchFilters>({
     resourceType: 'ALL',
     cultureCode: 'ALL',
@@ -24,7 +27,9 @@ export function SearchForm({ onSearch, onCultureCodeChange }: SearchFormProps) {
     resourceValue: '',
     onlyEmptyValues: false,
   });
+  const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['ALL']);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -32,7 +37,7 @@ export function SearchForm({ onSearch, onCultureCodeChange }: SearchFormProps) {
         .from('applications')
         .select('*')
         .order('application_name', { ascending: true });
-      
+
       if (!error && data) {
         setApplications(data);
       }
@@ -44,6 +49,49 @@ export function SearchForm({ onSearch, onCultureCodeChange }: SearchFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(filters);
+  };
+
+  const handleCultureCodeToggle = (code: string) => {
+    let newCodes: string[];
+
+    if (code === 'ALL') {
+      newCodes = ['ALL'];
+    } else {
+      // Remove 'ALL' if selecting specific language
+      const filteredCodes = selectedCultureCodes.filter(c => c !== 'ALL');
+
+      if (filteredCodes.includes(code)) {
+        // Remove the code
+        newCodes = filteredCodes.filter(c => c !== code);
+        // If no codes left, default to 'ALL'
+        if (newCodes.length === 0) {
+          newCodes = ['ALL'];
+        }
+      } else {
+        // Add the code
+        newCodes = [...filteredCodes, code];
+      }
+    }
+
+    setSelectedCultureCodes(newCodes);
+    onCultureCodesChange?.(newCodes);
+
+    // Update filters for search
+    const filterCultureCode = newCodes.includes('ALL') ? 'ALL' : newCodes[0];
+    const newFilters = { ...filters, cultureCode: filterCultureCode };
+    setFilters(newFilters);
+    onSearch(newFilters);
+  };
+
+  const getSelectedLanguagesText = () => {
+    if (selectedCultureCodes.includes('ALL')) {
+      return 'כל השפות';
+    }
+    if (selectedCultureCodes.length === 1) {
+      const lang = SUPPORTED_LANGUAGES.find(l => l.code === selectedCultureCodes[0]);
+      return lang?.name || selectedCultureCodes[0];
+    }
+    return `${selectedCultureCodes.length} שפות נבחרו`;
   };
 
   return (
@@ -85,29 +133,70 @@ export function SearchForm({ onSearch, onCultureCodeChange }: SearchFormProps) {
                     <Label htmlFor="cultureCode" className="cursor-help">Culture Code (Language)</Label>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>קוד שפה - קוד השפה/אזור לפי תקן (לדוגמה: en-US, he-IL)</p>
+                    <p>קוד שפה - קוד השפה/אזור לפי תקן (לדוגמה: en-US, he-IL). ניתן לבחור מספר שפות.</p>
                   </TooltipContent>
                 </Tooltip>
-                <Select
-                  value={filters.cultureCode}
-                  onValueChange={(value) => {
-                    setFilters({ ...filters, cultureCode: value });
-                    onCultureCodeChange?.(value);
-                    // Auto-search when culture code changes
-                    onSearch({ ...filters, cultureCode: value });
-                  }}
-                >
-                  <SelectTrigger id="cultureCode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_LANGUAGES.map((lang) => (
-                      <SelectItem key={lang.code} value={lang.code}>
-                        {lang.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={isLanguageOpen} onOpenChange={setIsLanguageOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isLanguageOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="truncate">{getSelectedLanguagesText()}</span>
+                      <ChevronDown className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[250px] p-2" align="start">
+                    <div className="space-y-1">
+                      {SUPPORTED_LANGUAGES.map((lang) => {
+                        const isSelected = selectedCultureCodes.includes(lang.code);
+                        return (
+                          <div
+                            key={lang.code}
+                            className={cn(
+                              "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-muted transition-colors",
+                              isSelected && "bg-muted"
+                            )}
+                            onClick={() => handleCultureCodeToggle(lang.code)}
+                          >
+                            <div className={cn(
+                              "flex h-4 w-4 items-center justify-center rounded border",
+                              isSelected ? "bg-primary border-primary text-primary-foreground" : "border-input"
+                            )}>
+                              {isSelected && <Check className="h-3 w-3" />}
+                            </div>
+                            <span className="text-sm">{lang.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {selectedCultureCodes.length > 0 && !selectedCultureCodes.includes('ALL') && (
+                      <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
+                        {selectedCultureCodes.map(code => {
+                          const lang = SUPPORTED_LANGUAGES.find(l => l.code === code);
+                          return (
+                            <Badge
+                              key={code}
+                              variant="secondary"
+                              className="text-xs gap-1"
+                            >
+                              {lang?.code || code}
+                              <X
+                                className="h-3 w-3 cursor-pointer hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCultureCodeToggle(code);
+                                }}
+                              />
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">

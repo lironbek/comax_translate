@@ -43,7 +43,12 @@ export interface User {
   id: string;
   username: string;
   display_name?: string;
-  role: 'admin' | 'translator' | 'viewer';
+  email?: string;
+  phone?: string;
+  role: 'admin' | 'editor' | 'viewer';
+  is_active?: boolean;
+  last_login?: string;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }

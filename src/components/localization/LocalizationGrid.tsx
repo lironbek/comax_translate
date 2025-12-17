@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { LocalizationRow, SUPPORTED_LANGUAGES } from '@/types/localization';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Download, Pencil, Check, X, FileJson, FileSpreadsheet, ChevronDown, History } from 'lucide-react';
+import { Download, Pencil, Check, X, FileJson, FileSpreadsheet, ChevronDown, History, Loader2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ImportDialog } from './ImportDialog';
 import { RowAuditLogDialog } from './RowAuditLogDialog';
@@ -14,11 +14,12 @@ import { createAuditLog } from '@/services/auditService';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { supabase } from '@/integrations/supabase/client';
 
+const PAGE_SIZE = 50;
+
 interface LocalizationGridProps {
   data: LocalizationRow[];
   onDataChange?: (data: LocalizationRow[]) => void;
-  selectedCultureCode?: string;
-  organizationId?: string;
+  selectedCultureCodes?: string[];
 }
 
 interface EditingState {
@@ -27,15 +28,103 @@ interface EditingState {
   value: string;
 }
 
-export function LocalizationGrid({ data, onDataChange, selectedCultureCode, organizationId }: LocalizationGridProps) {
+type SortDirection = 'asc' | 'desc' | null;
+
+interface SortState {
+  column: string;
+  direction: SortDirection;
+}
+
+export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = [] }: LocalizationGridProps) {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [editValue, setEditValue] = useState('');
   const [localData, setLocalData] = useState(data);
+  const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [sortState, setSortState] = useState<SortState>({ column: '', direction: null });
   const { currentUser } = useCurrentUser();
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLocalData(data);
+    setDisplayedCount(PAGE_SIZE); // Reset pagination when data changes
   }, [data]);
+
+  // Sort data based on sortState
+  const sortedData = useCallback(() => {
+    if (!sortState.column || !sortState.direction) {
+      return localData;
+    }
+
+    return [...localData].sort((a, b) => {
+      let valueA: string;
+      let valueB: string;
+
+      if (sortState.column === 'resourceKey') {
+        valueA = a.resourceKey;
+        valueB = b.resourceKey;
+      } else {
+        // It's a language column
+        valueA = a.translations[sortState.column as keyof typeof a.translations]?.value || '';
+        valueB = b.translations[sortState.column as keyof typeof b.translations]?.value || '';
+      }
+
+      const comparison = valueA.localeCompare(valueB, 'he');
+      return sortState.direction === 'asc' ? comparison : -comparison;
+    });
+  }, [localData, sortState]);
+
+  // Get displayed data (paginated)
+  const displayedData = sortedData().slice(0, displayedCount);
+  const hasMoreData = displayedCount < localData.length;
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreData && !isLoadingMore) {
+          setIsLoadingMore(true);
+          // Simulate loading delay for better UX
+          setTimeout(() => {
+            setDisplayedCount((prev) => Math.min(prev + PAGE_SIZE, localData.length));
+            setIsLoadingMore(false);
+          }, 500);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMoreData, isLoadingMore, localData.length]);
+
+  // Handle column sort
+  const handleSort = (column: string) => {
+    setSortState((prev) => {
+      if (prev.column !== column) {
+        return { column, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') {
+        return { column, direction: 'desc' };
+      }
+      return { column: '', direction: null };
+    });
+  };
+
+  // Get sort icon for column
+  const getSortIcon = (column: string) => {
+    if (sortState.column !== column) {
+      return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+    }
+    if (sortState.direction === 'asc') {
+      return <ArrowUp className="h-4 w-4" />;
+    }
+    return <ArrowDown className="h-4 w-4" />;
+  };
 
   const handleEdit = (resourceKey: string, cultureCode: string, currentValue: string) => {
     setEditing({ resourceKey, cultureCode, value: currentValue });
@@ -97,10 +186,6 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
         });
       } else {
         // Create new translation
-        if (!organizationId) {
-          throw new Error('חובה לבחור ארגון');
-        }
-
         const { data: newRecord, error: insertError } = await supabase
           .from('localization_resources')
           .insert({
@@ -108,7 +193,6 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
             culture_code: cultureCode,
             resource_key: resourceKey,
             resource_value: editValue,
-            organization_id: organizationId,
           })
           .select()
           .single();
@@ -196,10 +280,6 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
             updatedCount++;
           } else {
             // Insert new
-            if (!organizationId) {
-              throw new Error('חובה לבחור ארגון');
-            }
-
             const { error: insertError } = await supabase
               .from('localization_resources')
               .insert({
@@ -207,7 +287,6 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
                 culture_code: imported.cultureCode,
                 resource_key: imported.resourceKey,
                 resource_value: imported.resourceValue,
-                organization_id: organizationId,
               });
 
             if (insertError) throw insertError;
@@ -312,21 +391,23 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
   };
 
   const handleExportJSON = () => {
-    // Use the selected culture code, or default to Hebrew if 'ALL' is selected
-    const exportCultureCode = selectedCultureCode === 'ALL' ? 'he-IL' : selectedCultureCode;
+    // Use the first selected culture code, or default to Hebrew if 'ALL' is selected
+    const exportCultureCode = selectedCultureCodes.includes('ALL') || selectedCultureCodes.length === 0
+      ? 'he-IL'
+      : selectedCultureCodes[0];
     const languageName = SUPPORTED_LANGUAGES.find(l => l.code === exportCultureCode)?.name || exportCultureCode;
-    
+
     console.log(`📦 Exporting JSON for language: ${languageName} (${exportCultureCode})`);
-    
+
     // Export with English as key and selected language as value
     const exportData = localData.map(item => ({
       key: item.translations['en-US']?.value || item.resourceKey, // English translation as key
-      value: item.translations[exportCultureCode]?.value || ''     // Selected language as value
+      value: item.translations[exportCultureCode as keyof typeof item.translations]?.value || '' // Selected language as value
     }));
-    
+
     console.log(`✅ Exported ${exportData.length} items`);
     console.log(`📄 Sample: ${JSON.stringify(exportData.slice(0, 2), null, 2)}`);
-    
+
     const jsonContent = JSON.stringify(exportData, null, 4);
     const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
     const link = document.createElement('a');
@@ -344,10 +425,10 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
     });
   };
 
-  // Filter languages based on selected culture code
-  // Always show Hebrew (he-IL) + selected language (if not Hebrew)
-  const languages = selectedCultureCode && selectedCultureCode !== 'ALL'
-    ? SUPPORTED_LANGUAGES.filter(l => l.code === 'he-IL' || l.code === selectedCultureCode)
+  // Filter languages based on selected culture codes (multi-select)
+  // Always show Hebrew (he-IL) + selected languages
+  const languages = selectedCultureCodes.length > 0 && !selectedCultureCodes.includes('ALL')
+    ? SUPPORTED_LANGUAGES.filter(l => l.code === 'he-IL' || selectedCultureCodes.includes(l.code))
     : SUPPORTED_LANGUAGES.filter(l => l.code !== 'ALL');
 
   return (
@@ -355,7 +436,7 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
       <Card>
         <div className="p-4 border-b border-border flex justify-between items-center">
           <div className="text-sm text-muted-foreground">
-            נמצאו {localData.length} {localData.length === 1 ? 'רשומה' : 'רשומות'}
+            מציג {displayedData.length} מתוך {localData.length} {localData.length === 1 ? 'רשומה' : 'רשומות'}
           </div>
           <div className="flex gap-2">
             <div title="ייבוא נתונים">
@@ -380,19 +461,37 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
             </DropdownMenu>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div
+          ref={tableContainerRef}
+          className="overflow-auto max-h-[calc(100vh-350px)]"
+        >
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background z-20">
               <TableRow>
-                <TableHead className="sticky right-0 bg-background z-10" title="מפתח המשאב - שם קשיח בקוד">
-                  Key
+                <TableHead
+                  className="sticky right-0 bg-background z-30 px-2 cursor-pointer hover:bg-muted/50 select-none"
+                  title="מפתח המשאב - שם קשיח בקוד (לחץ למיון)"
+                  onClick={() => handleSort('resourceKey')}
+                >
+                  <div className="flex items-center gap-1 text-xs">
+                    Key
+                    {getSortIcon('resourceKey')}
+                  </div>
                 </TableHead>
                 {languages.map((lang) => (
-                  <TableHead key={lang.code} className="min-w-[350px]" title={`תרגום ל-${lang.name}`}>
-                    {lang.name}
+                  <TableHead
+                    key={lang.code}
+                    className="min-w-[150px] max-w-[200px] px-2 cursor-pointer hover:bg-muted/50 select-none"
+                    title={`תרגום ל-${lang.name} (לחץ למיון)`}
+                    onClick={() => handleSort(lang.code)}
+                  >
+                    <div className="flex items-center gap-1 text-xs">
+                      {lang.code}
+                      {getSortIcon(lang.code)}
+                    </div>
                   </TableHead>
                 ))}
-                <TableHead className="text-right sticky left-0 bg-background z-10" title="פעולות - ערוך את ערך התרגום">
+                <TableHead className="text-right sticky left-0 bg-background z-30 px-2 text-xs" title="פעולות - ערוך את ערך התרגום">
                   פעולות
                 </TableHead>
               </TableRow>
@@ -405,9 +504,9 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
                   </TableCell>
                 </TableRow>
               ) : (
-                localData.map((row) => (
+                displayedData.map((row) => (
                   <TableRow key={row.resourceKey}>
-                    <TableCell className="font-mono text-sm sticky right-0 bg-background z-10">
+                    <TableCell className="font-mono text-xs sticky right-0 bg-background z-10 px-2 py-1 max-w-[180px] truncate" title={row.resourceKey}>
                       {row.resourceKey}
                     </TableCell>
                     {languages.map((lang) => {
@@ -416,29 +515,30 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
                       const value = translation?.value || '';
                       
                       return (
-                        <TableCell key={lang.code} className="min-w-[350px]">
+                        <TableCell key={lang.code} className="min-w-[150px] max-w-[200px] px-2 py-1">
                           {isEditing ? (
-                            <div className="flex gap-2">
+                            <div className="flex gap-1">
                               <Input
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                className="flex-1"
+                                className="flex-1 h-7 text-sm"
                                 autoFocus
                               />
                               <Button
                                 size="sm"
                                 variant="default"
+                                className="h-7 w-7 p-0"
                                 onClick={() => handleSave(row.resourceKey, lang.code)}
                               >
-                                <Check className="h-4 w-4" />
+                                <Check className="h-3 w-3" />
                               </Button>
-                              <Button size="sm" variant="outline" onClick={handleCancel}>
-                                <X className="h-4 w-4" />
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={handleCancel}>
+                                <X className="h-3 w-3" />
                               </Button>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2 group">
-                              <span className={!value ? 'text-muted-foreground italic' : ''}>
+                            <div className="flex items-center gap-1 group">
+                              <span className={`text-sm truncate ${!value ? 'text-muted-foreground italic' : ''}`} title={value}>
                                 {value || '(ריק)'}
                               </span>
                               <Button
@@ -446,7 +546,7 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
                                 variant="ghost"
                                 onClick={() => handleEdit(row.resourceKey, lang.code, value)}
                                 title={`ערוך ${lang.name}`}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 h-6 w-6 p-0"
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
@@ -455,10 +555,10 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-right sticky left-0 bg-background z-10">
-                      <RowAuditLogDialog 
-                        recordId={row.resourceKey} 
-                        resourceKey={row.resourceKey} 
+                    <TableCell className="text-right sticky left-0 bg-background z-10 px-2 py-1">
+                      <RowAuditLogDialog
+                        recordId={row.resourceKey}
+                        resourceKey={row.resourceKey}
                       />
                     </TableCell>
                   </TableRow>
@@ -466,6 +566,24 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode, orga
               )}
             </TableBody>
           </Table>
+          {/* Infinite scroll loader */}
+          {hasMoreData && (
+            <div
+              ref={loadMoreRef}
+              className="flex items-center justify-center py-6 border-t border-border"
+            >
+              {isLoadingMore ? (
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>אנא המתן עד שיעלו ה-{PAGE_SIZE} רשומות הבאות...</span>
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  גלול למטה לטעינת עוד רשומות
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </Card>
     </TooltipProvider>

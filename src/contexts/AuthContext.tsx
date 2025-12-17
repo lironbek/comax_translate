@@ -40,37 +40,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: 'שגיאה בהתחברות למסד הנתונים' };
       }
 
-      let userData = existingUser;
-
-      // If user doesn't exist, create a new user automatically
-      if (!userData) {
-        const { data: createdUser, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            username: username,
-            password_hash: password, // Store password as-is for now (any password works)
-            display_name: username,
-            role: 'translator', // Default role
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          setIsLoading(false);
-          return { success: false, error: 'שגיאה ביצירת משתמש חדש' };
-        }
-
-        userData = createdUser;
+      // If user doesn't exist, return error
+      if (!existingUser) {
+        setIsLoading(false);
+        return { success: false, error: 'שם משתמש או סיסמה שגויים' };
       }
 
-      // Allow login with any password (no password check)
+      // Validate password
+      if (existingUser.password_hash !== password) {
+        setIsLoading(false);
+        return { success: false, error: 'שם משתמש או סיסמה שגויים' };
+      }
+
+      // Check if user is active
+      if (existingUser.is_active === false) {
+        setIsLoading(false);
+        return { success: false, error: 'המשתמש אינו פעיל. פנה למנהל המערכת.' };
+      }
+
+      // Update last_login timestamp
+      await supabase
+        .from('users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', existingUser.id);
+
       const authenticatedUser: User = {
-        id: userData.id,
-        username: userData.username,
-        displayName: userData.display_name || userData.username,
-        role: userData.role,
+        id: existingUser.id,
+        username: existingUser.username,
+        displayName: existingUser.display_name || existingUser.username,
+        role: existingUser.role,
       };
-      
+
       setUser(authenticatedUser);
       localStorage.setItem('comax_user', JSON.stringify(authenticatedUser));
       setIsLoading(false);

@@ -4,14 +4,11 @@ import { SearchForm } from '@/components/localization/SearchForm';
 import { LocalizationGrid } from '@/components/localization/LocalizationGrid';
 import { AuditLogView } from '@/components/localization/AuditLogView';
 import { SearchFilters, LocalizationResource, LocalizationRow } from '@/types/localization';
-import { Languages, History, LogOut, Loader2, Code, Building2, Users, Globe, Smartphone } from 'lucide-react';
+import { Languages, History, LogOut, Loader2, Code, Users, Smartphone } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrganization } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -21,9 +18,8 @@ export default function Localization() {
   const [allData, setAllData] = useState<LocalizationRow[]>([]);
   const [filteredData, setFilteredData] = useState<LocalizationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCultureCode, setSelectedCultureCode] = useState<string>('ALL');
+  const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['ALL']);
   const { user, logout, isAuthenticated } = useAuth();
-  const { selectedOrganization, setSelectedOrganization, organizations, isLoading: orgsLoading } = useOrganization();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,19 +31,11 @@ export default function Localization() {
   // Load data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      if (!selectedOrganization) {
-        setAllData([]);
-        setFilteredData([]);
-        setIsLoading(false);
-        return;
-      }
-
       setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('localization_resources')
           .select('*')
-          .eq('organization_id', selectedOrganization.id)
           .order('resource_key', { ascending: true })
           .order('culture_code', { ascending: true });
 
@@ -89,10 +77,10 @@ export default function Localization() {
       }
     };
 
-    if (isAuthenticated && selectedOrganization) {
+    if (isAuthenticated) {
       fetchData();
     }
-  }, [isAuthenticated, selectedOrganization]);
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     logout();
@@ -211,125 +199,90 @@ export default function Localization() {
 
   return (
     <div className="min-h-screen bg-background" dir="rtl">
-      {/* User info and logout button - floating in bottom right */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg px-4 py-2 shadow-lg">
-        {user && (
-          <span className="text-sm font-medium">
-            שלום, {user.displayName}
-          </span>
-        )}
-        <div className="h-4 w-px bg-border" />
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2 hover:bg-destructive hover:text-destructive-foreground">
-          <LogOut className="h-4 w-4" />
-          יציאה
-        </Button>
-      </div>
-
-      <div className="container mx-auto py-8 px-4 space-y-6">
-        <div className="flex items-center justify-between mb-6">
+      {/* Top Header Bar */}
+      <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+          {/* Logo and Title */}
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
-              <Languages className="h-6 w-6" />
+            <div className="p-1.5 rounded-lg bg-primary-foreground/20">
+              <Languages className="h-5 w-5" />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Comax - ניהול תרגומים</h1>
-              <p className="text-muted-foreground">
-                ניהול תרגומים לכל האפליקציות והשפות
-              </p>
-            </div>
+            <span className="font-semibold text-lg">Comax - ניהול תרגומים</span>
           </div>
-          <TooltipProvider>
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/organizations">
-                    <Button variant="outline" size="icon">
-                      <Building2 className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>ארגונים</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/users">
-                    <Button variant="outline" size="icon">
-                      <Users className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>משתמשים</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/api">
-                    <Button variant="outline" size="icon">
-                      <Code className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>API</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/applications">
-                    <Button variant="outline" size="icon">
-                      <Smartphone className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>אפליקציות</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
-        </div>
 
-        {/* Organization Selector */}
-        {!orgsLoading && (
-          <div className="bg-card border rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-4">
-              <Building2 className="h-5 w-5 text-muted-foreground" />
-              <div className="flex-1">
-                <label htmlFor="org-select" className="text-sm font-medium mb-2 block">
-                  בחר ארגון:
-                </label>
-                <Select 
-                  value={selectedOrganization?.id || ''} 
-                  onValueChange={(value) => {
-                    const org = organizations.find(o => o.id === value);
-                    setSelectedOrganization(org || null);
-                  }}
-                >
-                  <SelectTrigger id="org-select" className="w-full max-w-md">
-                    <SelectValue placeholder="בחר ארגון..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((org) => (
-                      <SelectItem key={org.id} value={org.id}>
-                        {org.organization_name} ({org.organization_number})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Navigation and User */}
+          <div className="flex items-center gap-4">
+            <TooltipProvider>
+              <nav className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link to="/users">
+                      <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                        <Users className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>משתמשים</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link to="/api">
+                      <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                        <Code className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>API</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link to="/applications">
+                      <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                        <Smartphone className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>אפליקציות</p>
+                  </TooltipContent>
+                </Tooltip>
+              </nav>
+            </TooltipProvider>
+
+            {/* Separator */}
+            <div className="h-6 w-px bg-primary-foreground/30" />
+
+            {/* User Info and Logout */}
+            <div className="flex items-center gap-3">
+              {user && (
+                <span className="text-sm font-medium">
+                  שלום, {user.displayName}
+                </span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="gap-2 text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <LogOut className="h-4 w-4" />
+                יציאה
+              </Button>
             </div>
-            {!selectedOrganization && (
-              <Alert className="mt-4">
-                <AlertDescription>
-                  יש לבחור ארגון כדי להציג ולערוך תרגומים
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
-        )}
+        </div>
+      </header>
+
+      <div className="container mx-auto py-6 px-4 space-y-6">
+        <div className="mb-4">
+          <p className="text-muted-foreground">
+            ניהול תרגומים לכל האפליקציות והשפות
+          </p>
+        </div>
 
         <Tabs defaultValue="translations" className="space-y-4">
           <TabsList>
@@ -344,22 +297,23 @@ export default function Localization() {
           </TabsList>
 
           <TabsContent value="translations" className="space-y-4">
-            <SearchForm 
-              onSearch={handleSearch} 
-              onCultureCodeChange={setSelectedCultureCode}
-            />
+            <div className="sticky top-14 z-40 bg-background pb-4 pt-2 -mt-2">
+              <SearchForm
+                onSearch={handleSearch}
+                onCultureCodesChange={setSelectedCultureCodes}
+              />
+            </div>
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <span className="mr-2 text-muted-foreground">טוען נתונים...</span>
               </div>
             ) : (
-            <LocalizationGrid 
-              data={filteredData} 
-              onDataChange={handleDataChange}
-              selectedCultureCode={selectedCultureCode}
-              organizationId={selectedOrganization?.id}
-            />
+              <LocalizationGrid
+                data={filteredData}
+                onDataChange={handleDataChange}
+                selectedCultureCodes={selectedCultureCodes}
+              />
             )}
           </TabsContent>
 
