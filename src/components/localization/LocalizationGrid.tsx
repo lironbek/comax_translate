@@ -466,7 +466,7 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = []
           className="overflow-auto max-h-[calc(100vh-350px)]"
         >
           <Table>
-            <TableHeader className="sticky top-0 bg-background z-20">
+            <TableHeader className="sticky top-0 bg-background z-20 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.1)]">
               <TableRow>
                 <TableHead
                   className="sticky right-0 bg-background z-30 px-2 cursor-pointer hover:bg-muted/50 select-none"

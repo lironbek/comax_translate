@@ -54,11 +54,11 @@ const Index = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">שם משתמש</Label>
+              <Label htmlFor="username">שם משתמש או אימייל</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="הזן שם משתמש"
+                placeholder="הזן שם משתמש או אימייל"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"

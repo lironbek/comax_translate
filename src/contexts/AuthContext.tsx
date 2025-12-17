@@ -28,12 +28,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
-      // Query the users table to check if user exists
-      const { data: existingUser, error: queryError } = await supabase
+      // Query the users table to check if user exists by username OR email
+      let existingUser = null;
+      let queryError = null;
+
+      // First try to find by username
+      const { data: userByUsername, error: usernameError } = await supabase
         .from('users')
         .select('*')
         .eq('username', username)
         .maybeSingle();
+
+      if (usernameError) {
+        queryError = usernameError;
+      } else if (userByUsername) {
+        existingUser = userByUsername;
+      } else {
+        // If not found by username, try by email
+        const { data: userByEmail, error: emailError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', username)
+          .maybeSingle();
+
+        if (emailError) {
+          queryError = emailError;
+        } else {
+          existingUser = userByEmail;
+        }
+      }
 
       if (queryError) {
         setIsLoading(false);

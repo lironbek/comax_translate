@@ -245,11 +245,10 @@ export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) 
                         onCheckedChange={(checked) =>
                           setFilters({ ...filters, onlyEmptyValues: checked === true })
                         }
-                        disabled={filters.cultureCode === 'ALL'}
                       />
                       <Label
                         htmlFor="onlyEmpty"
-                        className={filters.cultureCode === 'ALL' ? 'text-muted-foreground cursor-help' : 'cursor-help'}
+                        className="cursor-help"
                       >
                         Show only missing translations
                       </Label>
