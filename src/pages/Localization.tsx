@@ -4,7 +4,7 @@ import { SearchForm } from '@/components/localization/SearchForm';
 import { LocalizationGrid } from '@/components/localization/LocalizationGrid';
 import { AuditLogView } from '@/components/localization/AuditLogView';
 import { SearchFilters, LocalizationResource, LocalizationRow } from '@/types/localization';
-import { Languages, History, LogOut, Loader2, Code, Users, Smartphone } from 'lucide-react';
+import { Languages, History, LogOut, Loader2, Code, Users, Smartphone, Globe } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -12,13 +12,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
-import { translateAllHebrewToLanguages } from '@/services/translationService';
 
 export default function Localization() {
   const [allData, setAllData] = useState<LocalizationRow[]>([]);
   const [filteredData, setFilteredData] = useState<LocalizationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['ALL']);
+  const [selectedCultureCode, setSelectedCultureCode] = useState<string>('ALL');
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -47,7 +46,7 @@ export default function Localization() {
 
         // Group by resource_key
         const groupedData = new Map<string, LocalizationRow>();
-        
+
         (data || []).forEach((item) => {
           const key = item.resource_key;
           if (!groupedData.has(key)) {
@@ -57,7 +56,7 @@ export default function Localization() {
               translations: {},
             });
           }
-          
+
           const row = groupedData.get(key)!;
           row.translations[item.culture_code as keyof typeof row.translations] = {
             id: item.id,
@@ -95,13 +94,8 @@ export default function Localization() {
       results = results.filter((item) => item.resourceType === filters.resourceType);
     }
 
-    // Filter by culture code - check if any translation exists for this culture
-    if (filters.cultureCode && filters.cultureCode !== 'ALL') {
-      results = results.filter((item) => {
-        const translation = item.translations[filters.cultureCode as keyof typeof item.translations];
-        return !!translation;
-      });
-    }
+    // Note: Culture code filter only affects which columns are displayed (handled in LocalizationGrid)
+    // It does NOT filter out records - all records are shown so users can add missing translations
 
     // Filter by resource key
     if (filters.resourceKey) {
@@ -138,153 +132,103 @@ export default function Localization() {
     setFilteredData(newData);
   };
 
-  const handleTranslateAll = async () => {
-    if (!confirm('האם אתה בטוח? תרגום אוטומטי יתרגם את כל התרגומים הישירות מעברית, ועלול לשכתב תרגומים קיימים. האם להמשיך?')) {
-      return;
-    }
-
-    setIsLoading(true);
-    toast.info('מתחיל תרגום... זה עלול לקחת כמה דקות');
-
-    try {
-      const result = await translateAllHebrewToLanguages(['en-US', 'ro-RO', 'th-TH']);
-      
-      if (result.success) {
-        toast.success(`תרגום הושלם בהצלחה! תורגמו ${result.translated} תרגומים`);
-      } else {
-        toast.warning(`תרגום הושלם עם שגיאות: ${result.translated} תורגמו, ${result.errors} שגיאות`);
-        if (result.errorMessages.length > 0) {
-          console.error('Translation errors:', result.errorMessages);
-        }
-      }
-
-      // Reload data
-      const { data, error } = await supabase
-        .from('localization_resources')
-        .select('*')
-        .order('resource_key', { ascending: true })
-        .order('culture_code', { ascending: true });
-
-      if (!error && data) {
-        const groupedData = new Map<string, LocalizationRow>();
-        
-        (data || []).forEach((item) => {
-          const key = item.resource_key;
-          if (!groupedData.has(key)) {
-            groupedData.set(key, {
-              resourceKey: key,
-              resourceType: item.resource_type,
-              translations: {},
-            });
-          }
-          
-          const row = groupedData.get(key)!;
-          row.translations[item.culture_code as keyof typeof row.translations] = {
-            id: item.id,
-            value: item.resource_value || '',
-          };
-        });
-
-        const resources: LocalizationRow[] = Array.from(groupedData.values());
-        setAllData(resources);
-        setFilteredData(resources);
-      }
-    } catch (error) {
-      toast.error('שגיאה בתרגום');
-      console.error('Translation error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      {/* Top Header Bar */}
-      <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          {/* Logo and Title */}
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-primary-foreground/20">
-              <Languages className="h-5 w-5" />
-            </div>
-            <span className="font-semibold text-lg">Comax - ניהול תרגומים</span>
-          </div>
-
-          {/* Navigation and User */}
-          <div className="flex items-center gap-4">
-            <TooltipProvider>
-              <nav className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link to="/users">
-                      <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                        <Users className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>משתמשים</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link to="/api">
-                      <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                        <Code className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>API</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link to="/applications">
-                      <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                        <Smartphone className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>אפליקציות</p>
-                  </TooltipContent>
-                </Tooltip>
-              </nav>
-            </TooltipProvider>
-
-            {/* Separator */}
-            <div className="h-6 w-px bg-primary-foreground/30" />
-
-            {/* User Info and Logout */}
+    <TooltipProvider>
+      <div className="min-h-screen bg-background" dir="rtl">
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
+          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+            {/* Logo and Title */}
             <div className="flex items-center gap-3">
-              {user && (
-                <span className="text-sm font-medium">
-                  שלום, {user.displayName}
-                </span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="gap-2 text-primary-foreground hover:bg-primary-foreground/20"
-              >
-                <LogOut className="h-4 w-4" />
-                יציאה
-              </Button>
+              <div className="p-1.5 rounded-lg bg-primary-foreground/20">
+                <Languages className="h-5 w-5" />
+              </div>
+              <span className="font-semibold text-lg">Comax - ניהול תרגומים</span>
+            </div>
+
+            {/* Navigation */}
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to="/languages">
+                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                      <Globe className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>שפות</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to="/users">
+                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                      <Users className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>משתמשים</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to="/api">
+                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                      <Code className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>API</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to="/applications">
+                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                      <Smartphone className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>אפליקציות</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Separator */}
+              <div className="h-6 w-px bg-primary-foreground/30 mx-1" />
+
+              {/* User Info and Logout */}
+              <div className="flex items-center gap-3">
+                {user && (
+                  <span className="text-sm font-medium">
+                    שלום, {user.displayName}
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="gap-2 text-primary-foreground hover:bg-primary-foreground/20"
+                >
+                  <LogOut className="h-4 w-4" />
+                  יציאה
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="container mx-auto py-6 px-4 space-y-6">
-        <div className="mb-4">
-          <p className="text-muted-foreground">
-            ניהול תרגומים לכל האפליקציות והשפות
-          </p>
-        </div>
+        <div className="container mx-auto py-6 px-4 space-y-6">
+          <div className="mb-4">
+            <p className="text-muted-foreground">
+              ניהול תרגומים לכל האפליקציות והשפות
+            </p>
+          </div>
 
-        <Tabs defaultValue="translations" className="space-y-4">
+          <Tabs defaultValue="translations" className="space-y-4">
           <TabsList>
             <TabsTrigger value="translations" className="gap-2">
               <Languages className="h-4 w-4" />
@@ -297,31 +241,30 @@ export default function Localization() {
           </TabsList>
 
           <TabsContent value="translations" className="space-y-4">
-            <div className="sticky top-14 z-40 bg-background pb-4 pt-2 -mt-2">
-              <SearchForm
-                onSearch={handleSearch}
-                onCultureCodesChange={setSelectedCultureCodes}
-              />
-            </div>
+            <SearchForm
+              onSearch={handleSearch}
+              onCultureCodesChange={(codes) => setSelectedCultureCode(codes[0] || 'ALL')}
+            />
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <span className="mr-2 text-muted-foreground">טוען נתונים...</span>
               </div>
             ) : (
-              <LocalizationGrid
-                data={filteredData}
-                onDataChange={handleDataChange}
-                selectedCultureCodes={selectedCultureCodes}
-              />
+            <LocalizationGrid
+              data={filteredData}
+              onDataChange={handleDataChange}
+              selectedCultureCode={selectedCultureCode}
+            />
             )}
           </TabsContent>
 
           <TabsContent value="audit">
             <AuditLogView />
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

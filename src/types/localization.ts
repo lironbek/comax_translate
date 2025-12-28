@@ -15,6 +15,8 @@ export interface LocalizationRow {
     'en-US'?: { id?: string; value: string };
     'ro-RO'?: { id?: string; value: string };
     'th-TH'?: { id?: string; value: string };
+    'ar-SA'?: { id?: string; value: string };
+    [key: string]: { id?: string; value: string } | undefined;
   };
 }
 
@@ -59,6 +61,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'en-US', name: 'English (en-US)' },
   { code: 'ro-RO', name: 'Română (ro-RO)' },
   { code: 'th-TH', name: 'ไทย (th-TH)' },
+  { code: 'ar-SA', name: 'العربية (ar-SA)' },
 ] as const;
 
 export const RESOURCE_TYPES = [

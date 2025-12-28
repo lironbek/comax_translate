@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -15,10 +15,11 @@ const Index = () => {
   const navigate = useNavigate();
 
   // If already authenticated, redirect to localization
-  if (isAuthenticated) {
-    window.location.href = '/localization';
-    return null;
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/localization', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

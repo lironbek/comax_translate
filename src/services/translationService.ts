@@ -12,7 +12,7 @@ interface TranslationResult {
  */
 export async function translateText(
   text: string,
-  targetLanguage: 'en-US' | 'ro-RO' | 'th-TH'
+  targetLanguage: 'en-US' | 'ro-RO' | 'th-TH' | 'ar-SA'
 ): Promise<TranslationResult> {
   if (!text || !text.trim()) {
     return { success: false, error: 'Text is empty' };
@@ -23,6 +23,7 @@ export async function translateText(
     'en-US': 'en',
     'ro-RO': 'ro',
     'th-TH': 'th',
+    'ar-SA': 'ar',
   };
 
   const targetLang = languageMap[targetLanguage] || 'en';
@@ -64,10 +65,146 @@ export async function translateText(
 }
 
 /**
- * Translate all Hebrew translations to target languages
+ * Progress callback type
+ */
+export type TranslationProgressCallback = (progress: number, current: number, total: number) => void;
+
+/**
+ * Translate all Hebrew translations to target languages with progress tracking
+ */
+export async function translateAllHebrewToLanguagesWithProgress(
+  targetLanguages: ('en-US' | 'ro-RO' | 'th-TH' | 'ar-SA')[],
+  onProgress?: TranslationProgressCallback
+): Promise<{ success: boolean; translated: number; errors: number; errorMessages: string[] }> {
+  try {
+    // Fetch all Hebrew translations
+    const { data: hebrewData, error: fetchError } = await supabase
+      .from('localization_resources')
+      .select('*')
+      .eq('culture_code', 'he-IL')
+      .order('resource_key', { ascending: true });
+
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    if (!hebrewData || hebrewData.length === 0) {
+      return { success: false, translated: 0, errors: 0, errorMessages: ['No Hebrew translations found'] };
+    }
+
+    let translated = 0;
+    let errors = 0;
+    const errorMessages: string[] = [];
+
+    const totalItems = hebrewData.length * targetLanguages.length;
+    let processedItems = 0;
+
+    // Translate each Hebrew text to each target language
+    for (const hebrewItem of hebrewData) {
+      for (const targetLang of targetLanguages) {
+        // Update progress
+        processedItems++;
+        const progress = Math.round((processedItems / totalItems) * 100);
+        if (onProgress) {
+          onProgress(progress, processedItems, totalItems);
+        }
+
+        // Check if translation already exists
+        const { data: existing } = await supabase
+          .from('localization_resources')
+          .select('id')
+          .eq('resource_type', hebrewItem.resource_type)
+          .eq('culture_code', targetLang)
+          .eq('resource_key', hebrewItem.resource_key)
+          .maybeSingle();
+
+        // Skip if translation already exists and has a value
+        if (existing) {
+          const { data: existingValue } = await supabase
+            .from('localization_resources')
+            .select('resource_value')
+            .eq('id', existing.id)
+            .single();
+
+          if (existingValue?.resource_value && existingValue.resource_value.trim() !== '') {
+            continue; // Skip if translation already exists
+          }
+        }
+
+        // Translate the text
+        const translationResult = await translateText(
+          hebrewItem.resource_value || '',
+          targetLang
+        );
+
+        if (translationResult.success && translationResult.translatedText) {
+          try {
+            if (existing) {
+              // Update existing translation
+              const { error: updateError } = await supabase
+                .from('localization_resources')
+                .update({ resource_value: translationResult.translatedText })
+                .eq('id', existing.id);
+
+              if (updateError) throw updateError;
+            } else {
+              // Insert new translation
+              const { error: insertError } = await supabase
+                .from('localization_resources')
+                .insert({
+                  resource_type: hebrewItem.resource_type,
+                  culture_code: targetLang,
+                  resource_key: hebrewItem.resource_key,
+                  resource_value: translationResult.translatedText,
+                });
+
+              if (insertError) throw insertError;
+            }
+            translated++;
+          } catch (dbError) {
+            errors++;
+            errorMessages.push(
+              `Failed to save translation for ${hebrewItem.resource_key} to ${targetLang}: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`
+            );
+          }
+        } else {
+          errors++;
+          errorMessages.push(
+            `Failed to translate ${hebrewItem.resource_key} to ${targetLang}: ${translationResult.error || 'Unknown error'}`
+          );
+        }
+
+        // Add a small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // Ensure 100% at the end
+    if (onProgress) {
+      onProgress(100, totalItems, totalItems);
+    }
+
+    return {
+      success: errors === 0,
+      translated,
+      errors,
+      errorMessages,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      translated: 0,
+      errors: 0,
+      errorMessages: [error instanceof Error ? error.message : 'Unknown error'],
+    };
+  }
+}
+
+/**
+ * Translate all Hebrew translations to target languages (without progress)
  */
 export async function translateAllHebrewToLanguages(
-  targetLanguages: ('en-US' | 'ro-RO' | 'th-TH')[]
+  targetLanguages: ('en-US' | 'ro-RO' | 'th-TH' | 'ar-SA')[]
 ): Promise<{ success: boolean; translated: number; errors: number; errorMessages: string[] }> {
   try {
     // Fetch all Hebrew translations

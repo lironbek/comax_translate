@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx playwright:*)",
+      "Bash(node test-users-button.js:*)",
+      "Bash(npm install:*)",
+      "Bash(node test-users-button.cjs:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx supabase:*)",
+      "Bash(node run-migration.cjs:*)",
+      "Bash(node extract-favicon-color.cjs:*)",
+      "Bash(cat:*)",
+      "Bash(node test-login.cjs:*)",
+      "Bash(node check-users.cjs:*)",
+      "Bash(node test-correct-login.cjs:*)",
+      "Bash(node test-email-login.cjs:*)",
+      "Bash(node test-user-sync.cjs:*)",
+      "Bash(node test-vercel.cjs:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(node test-vercel-login.cjs:*)",
+      "Bash(node test-vercel-debug.cjs)",
+      "Bash(node create-api-doc.cjs:*)",
+      "Bash(node:*)",
+      "Bash(dir /b supabase.temp)",
+      "Bash(findstr:*)",
+      "Bash(echo:*)",
+      "Bash(dir /b .claude)",
+      "Bash(dir /s /b \"%APPDATA%\\\\Claude\\\\*mcp*\")",
+      "Bash(dir /s /b \"%USERPROFILE%\\\\.config\\\\claude\\\\*mcp*\")"
+    ]
+  }
+}

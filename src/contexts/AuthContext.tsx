@@ -6,6 +6,7 @@ interface User {
   username: string;
   displayName: string;
   role: string;
+  email?: string;
 }
 
 interface AuthContextType {
@@ -92,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username: existingUser.username,
         displayName: existingUser.display_name || existingUser.username,
         role: existingUser.role,
+        email: existingUser.email || undefined,
       };
 
       setUser(authenticatedUser);
