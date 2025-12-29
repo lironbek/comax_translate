@@ -6,13 +6,22 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Download, Pencil, Check, X, FileJson, FileSpreadsheet, ChevronDown, History } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Download, Pencil, Check, X, FileJson, FileSpreadsheet, Settings, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ImportDialog } from './ImportDialog';
 import { RowAuditLogDialog } from './RowAuditLogDialog';
 import { createAuditLog } from '@/services/auditService';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
+
+interface ColumnConfig {
+  id: string;
+  label: string;
+  type: 'fixed' | 'language';
+  languageCode?: string;
+}
 
 interface LocalizationGridProps {
   data: LocalizationRow[];
@@ -30,11 +39,49 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [editValue, setEditValue] = useState('');
   const [localData, setLocalData] = useState(data);
+  const [columnOrder, setColumnOrder] = useState<string[]>(['key', 'resourceType']);
+  const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false);
   const { currentUser } = useCurrentUser();
+
+  // Update column order when selected culture codes change
+  useEffect(() => {
+    const languageCodes = selectedCultureCodes.includes('ALL')
+      ? SUPPORTED_LANGUAGES.filter(l => l.code !== 'ALL').map(l => l.code)
+      : selectedCultureCodes;
+
+    // Keep existing order for columns that still exist, add new ones at the end
+    const newOrder = ['key', 'resourceType', ...languageCodes];
+    setColumnOrder(prev => {
+      const existingOrder = prev.filter(col => newOrder.includes(col));
+      const newCols = newOrder.filter(col => !prev.includes(col));
+      return [...existingOrder, ...newCols];
+    });
+  }, [selectedCultureCodes]);
 
   useEffect(() => {
     setLocalData(data);
   }, [data]);
+
+  const moveColumnUp = (index: number) => {
+    if (index <= 0) return;
+    const newOrder = [...columnOrder];
+    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    setColumnOrder(newOrder);
+  };
+
+  const moveColumnDown = (index: number) => {
+    if (index >= columnOrder.length - 1) return;
+    const newOrder = [...columnOrder];
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    setColumnOrder(newOrder);
+  };
+
+  const getColumnLabel = (colId: string) => {
+    if (colId === 'key') return 'Key';
+    if (colId === 'resourceType') return 'Resource Type';
+    const lang = SUPPORTED_LANGUAGES.find(l => l.code === colId);
+    return lang?.name || colId;
+  };
 
   const handleEdit = (resourceKey: string, cultureCode: string, currentValue: string) => {
     setEditing({ resourceKey, cultureCode, value: currentValue });
@@ -334,12 +381,6 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['
     });
   };
 
-  // Filter languages based on selected culture codes
-  // Show only selected languages, or all if 'ALL' is selected
-  const languages = selectedCultureCodes.includes('ALL')
-    ? SUPPORTED_LANGUAGES.filter(l => l.code !== 'ALL')
-    : SUPPORTED_LANGUAGES.filter(l => selectedCultureCodes.includes(l.code));
-
   return (
     <TooltipProvider>
       <Card>
@@ -348,6 +389,54 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['
             נמצאו {localData.length} {localData.length === 1 ? 'רשומה' : 'רשומות'}
           </div>
           <div className="flex gap-2">
+            {/* Column Settings */}
+            <Popover open={isColumnSettingsOpen} onOpenChange={setIsColumnSettingsOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" title="סדר עמודות">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-3" align="end">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium mb-3">סדר עמודות</div>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    השתמש בחצים כדי לשנות את סדר העמודות
+                  </div>
+                  <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                    {columnOrder.map((colId, index) => (
+                      <div
+                        key={colId}
+                        className="flex items-center gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted"
+                      >
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                        <span className="flex-1 text-sm">{getColumnLabel(colId)}</span>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => moveColumnUp(index)}
+                            disabled={index === 0}
+                          >
+                            <ArrowUp className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => moveColumnDown(index)}
+                            disabled={index === columnOrder.length - 1}
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <div title="ייבוא נתונים">
               <ImportDialog onImport={handleImport} />
             </div>
@@ -374,15 +463,32 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky right-0 bg-background z-10" title="מפתח המשאב - שם קשיח בקוד">
-                  Key
-                </TableHead>
-                {languages.map((lang) => (
-                  <TableHead key={lang.code} className="min-w-[200px]" title={`תרגום ל-${lang.name}`}>
-                    {lang.name}
-                  </TableHead>
-                ))}
-                <TableHead className="text-right sticky left-0 bg-background z-10" title="פעולות - ערוך את ערך התרגום">
+                {columnOrder.map((colId) => {
+                  if (colId === 'key') {
+                    return (
+                      <TableHead key={colId} className="min-w-[150px]" title="מפתח המשאב - שם קשיח בקוד">
+                        Key
+                      </TableHead>
+                    );
+                  }
+                  if (colId === 'resourceType') {
+                    return (
+                      <TableHead key={colId} className="min-w-[120px]" title="סוג המשאב - האפליקציה">
+                        Resource Type
+                      </TableHead>
+                    );
+                  }
+                  const lang = SUPPORTED_LANGUAGES.find(l => l.code === colId);
+                  if (lang) {
+                    return (
+                      <TableHead key={colId} className="min-w-[200px]" title={`תרגום ל-${lang.name}`}>
+                        {lang.name}
+                      </TableHead>
+                    );
+                  }
+                  return null;
+                })}
+                <TableHead className="text-left sticky left-0 bg-background z-10 min-w-[80px]" title="פעולות - ערוך את ערך התרגום">
                   פעולות
                 </TableHead>
               </TableRow>
@@ -390,65 +496,80 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['
             <TableBody>
               {localData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={languages.length + 2} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={columnOrder.length + 1} className="text-center py-8 text-muted-foreground">
                     לא נמצאו רשומות. נסה לשנות את מסנני החיפוש.
                   </TableCell>
                 </TableRow>
               ) : (
                 localData.map((row) => (
                   <TableRow key={row.resourceKey}>
-                    <TableCell className="font-mono text-sm sticky right-0 bg-background z-10">
-                      {row.resourceKey}
-                    </TableCell>
-                    {languages.map((lang) => {
-                      const translation = row.translations[lang.code as keyof typeof row.translations];
-                      const isEditing = editing?.resourceKey === row.resourceKey && editing?.cultureCode === lang.code;
-                      const value = translation?.value || '';
-                      
-                      return (
-                        <TableCell key={lang.code} className="min-w-[200px]">
-                          {isEditing ? (
-                            <div className="flex gap-2">
-                              <Input
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                className="flex-1"
-                                autoFocus
-                              />
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => handleSave(row.resourceKey, lang.code)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={handleCancel}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 group">
-                              <span className={!value ? 'text-muted-foreground italic' : ''}>
-                                {value || '(ריק)'}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleEdit(row.resourceKey, lang.code, value)}
-                                title={`ערוך ${lang.name}`}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      );
+                    {columnOrder.map((colId) => {
+                      if (colId === 'key') {
+                        return (
+                          <TableCell key={colId} className="font-mono text-sm min-w-[150px]">
+                            {row.resourceKey}
+                          </TableCell>
+                        );
+                      }
+                      if (colId === 'resourceType') {
+                        return (
+                          <TableCell key={colId} className="text-sm text-muted-foreground min-w-[120px]">
+                            {row.resourceType}
+                          </TableCell>
+                        );
+                      }
+                      const lang = SUPPORTED_LANGUAGES.find(l => l.code === colId);
+                      if (lang) {
+                        const translation = row.translations[lang.code as keyof typeof row.translations];
+                        const isEditing = editing?.resourceKey === row.resourceKey && editing?.cultureCode === lang.code;
+                        const value = translation?.value || '';
+
+                        return (
+                          <TableCell key={colId} className="min-w-[200px]">
+                            {isEditing ? (
+                              <div className="flex gap-2">
+                                <Input
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  className="flex-1"
+                                  autoFocus
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleSave(row.resourceKey, lang.code)}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={handleCancel}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 group">
+                                <span className={!value ? 'text-muted-foreground italic' : ''}>
+                                  {value || '(ריק)'}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEdit(row.resourceKey, lang.code, value)}
+                                  title={`ערוך ${lang.name}`}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        );
+                      }
+                      return null;
                     })}
-                    <TableCell className="text-right sticky left-0 bg-background z-10">
-                      <RowAuditLogDialog 
-                        recordId={row.resourceKey} 
-                        resourceKey={row.resourceKey} 
+                    <TableCell className="text-left sticky left-0 bg-background z-10">
+                      <RowAuditLogDialog
+                        recordId={row.resourceKey}
+                        resourceKey={row.resourceKey}
                       />
                     </TableCell>
                   </TableRow>

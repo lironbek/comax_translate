@@ -17,9 +17,10 @@ import { cn } from '@/lib/utils';
 interface SearchFormProps {
   onSearch: (filters: SearchFilters) => void;
   onCultureCodesChange?: (cultureCodes: string[]) => void;
+  onResourceTypesChange?: (resourceTypes: string[]) => void;
 }
 
-export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) {
+export function SearchForm({ onSearch, onCultureCodesChange, onResourceTypesChange }: SearchFormProps) {
   const [filters, setFilters] = useState<SearchFilters>({
     resourceType: 'ALL',
     cultureCode: 'ALL',
@@ -28,8 +29,10 @@ export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) 
     onlyEmptyValues: false,
   });
   const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['he-IL', 'en-US']);
+  const [selectedResourceTypes, setSelectedResourceTypes] = useState<string[]>(['ALL']);
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
+  const [isResourceTypeOpen, setIsResourceTypeOpen] = useState(false);
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -99,6 +102,44 @@ export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) 
     return `${selectedCultureCodes.length} שפות נבחרו`;
   };
 
+  const handleResourceTypeToggle = (code: string) => {
+    let newTypes: string[];
+
+    if (code === 'ALL') {
+      newTypes = ['ALL'];
+    } else {
+      const filteredTypes = selectedResourceTypes.filter(t => t !== 'ALL');
+
+      if (filteredTypes.includes(code)) {
+        newTypes = filteredTypes.filter(t => t !== code);
+        if (newTypes.length === 0) {
+          newTypes = ['ALL'];
+        }
+      } else {
+        newTypes = [...filteredTypes, code];
+      }
+    }
+
+    setSelectedResourceTypes(newTypes);
+    onResourceTypesChange?.(newTypes);
+
+    const filterResourceType = newTypes.includes('ALL') ? 'ALL' : newTypes[0];
+    const newFilters = { ...filters, resourceType: filterResourceType };
+    setFilters(newFilters);
+    onSearch(newFilters);
+  };
+
+  const getSelectedResourceTypesText = () => {
+    if (selectedResourceTypes.includes('ALL')) {
+      return 'כל האפליקציות';
+    }
+    if (selectedResourceTypes.length === 1) {
+      const app = applications.find(a => a.application_code === selectedResourceTypes[0]);
+      return app?.application_name || selectedResourceTypes[0];
+    }
+    return `${selectedResourceTypes.length} אפליקציות נבחרו`;
+  };
+
   return (
     <TooltipProvider>
       <Card>
@@ -111,25 +152,85 @@ export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) 
                     <Label htmlFor="resourceType" className="cursor-help">Resource Type</Label>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>סוג המשאב - מזהה לוגי של קבוצת מחרוזות (לדוגמה: SmartPhone_Picking_APP)</p>
+                    <p>סוג המשאב - מזהה לוגי של קבוצת מחרוזות. ניתן לבחור מספר אפליקציות.</p>
                   </TooltipContent>
                 </Tooltip>
-                <Select
-                  value={filters.resourceType}
-                  onValueChange={(value) => setFilters({ ...filters, resourceType: value })}
-                >
-                  <SelectTrigger id="resourceType">
-                    <SelectValue placeholder="Select resource type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Types</SelectItem>
-                    {applications.map((app) => (
-                      <SelectItem key={app.id} value={app.application_code}>
-                        {app.application_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={isResourceTypeOpen} onOpenChange={setIsResourceTypeOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isResourceTypeOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="truncate">{getSelectedResourceTypesText()}</span>
+                      <ChevronDown className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[250px] p-2" align="start">
+                    <div className="space-y-1">
+                      <div
+                        className={cn(
+                          "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-muted transition-colors",
+                          selectedResourceTypes.includes('ALL') && "bg-muted"
+                        )}
+                        onClick={() => handleResourceTypeToggle('ALL')}
+                      >
+                        <div className={cn(
+                          "flex h-4 w-4 items-center justify-center rounded border",
+                          selectedResourceTypes.includes('ALL') ? "bg-primary border-primary text-primary-foreground" : "border-input"
+                        )}>
+                          {selectedResourceTypes.includes('ALL') && <Check className="h-3 w-3" />}
+                        </div>
+                        <span className="text-sm">כל האפליקציות</span>
+                      </div>
+                      {applications.map((app) => {
+                        const isSelected = selectedResourceTypes.includes(app.application_code);
+                        return (
+                          <div
+                            key={app.id}
+                            className={cn(
+                              "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-muted transition-colors",
+                              isSelected && "bg-muted"
+                            )}
+                            onClick={() => handleResourceTypeToggle(app.application_code)}
+                          >
+                            <div className={cn(
+                              "flex h-4 w-4 items-center justify-center rounded border",
+                              isSelected ? "bg-primary border-primary text-primary-foreground" : "border-input"
+                            )}>
+                              {isSelected && <Check className="h-3 w-3" />}
+                            </div>
+                            <span className="text-sm">{app.application_name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {selectedResourceTypes.length > 0 && !selectedResourceTypes.includes('ALL') && (
+                      <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
+                        {selectedResourceTypes.map(code => {
+                          const app = applications.find(a => a.application_code === code);
+                          return (
+                            <Badge
+                              key={code}
+                              variant="secondary"
+                              className="text-xs gap-1"
+                            >
+                              {app?.application_name || code}
+                              <X
+                                className="h-3 w-3 cursor-pointer hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResourceTypeToggle(code);
+                                }}
+                              />
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">

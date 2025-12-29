@@ -16,6 +16,7 @@ export default function Localization() {
   const [filteredData, setFilteredData] = useState<LocalizationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['he-IL', 'en-US']);
+  const [selectedResourceTypes, setSelectedResourceTypes] = useState<string[]>(['ALL']);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -82,9 +83,9 @@ export default function Localization() {
   const handleSearch = (filters: SearchFilters) => {
     let results = [...allData];
 
-    // Filter by resource type
-    if (filters.resourceType && filters.resourceType !== 'ALL') {
-      results = results.filter((item) => item.resourceType === filters.resourceType);
+    // Filter by resource type (supports multiple selection)
+    if (!selectedResourceTypes.includes('ALL') && selectedResourceTypes.length > 0) {
+      results = results.filter((item) => selectedResourceTypes.includes(item.resourceType));
     }
 
     // Note: Culture code filter only affects which columns are displayed (handled in LocalizationGrid)
@@ -145,6 +146,7 @@ export default function Localization() {
           <SearchForm
             onSearch={handleSearch}
             onCultureCodesChange={setSelectedCultureCodes}
+            onResourceTypesChange={setSelectedResourceTypes}
           />
           {isLoading ? (
             <div className="flex items-center justify-center py-12">

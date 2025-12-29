@@ -328,22 +328,22 @@ export default function Users() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>שם משתמש</TableHead>
-                      <TableHead>אימייל</TableHead>
-                      <TableHead>שם תצוגה</TableHead>
-                      <TableHead>תפקיד</TableHead>
-                      <TableHead>סטטוס</TableHead>
-                      <TableHead className="text-right">פעולות</TableHead>
+                      <TableHead className="text-right">שם משתמש</TableHead>
+                      <TableHead className="text-right">אימייל</TableHead>
+                      <TableHead className="text-right">שם תצוגה</TableHead>
+                      <TableHead className="text-right">תפקיד</TableHead>
+                      <TableHead className="text-right">סטטוס</TableHead>
+                      <TableHead className="text-left w-[120px]">פעולות</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.map((u) => (
                       <TableRow key={u.id} className={!u.is_active ? 'opacity-50' : ''}>
-                        <TableCell className="font-semibold">{u.username}</TableCell>
-                        <TableCell className="font-mono text-sm">{u.email}</TableCell>
-                        <TableCell>{u.display_name || '-'}</TableCell>
-                        <TableCell>{getRoleBadge(u.role)}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-semibold text-right">{u.username}</TableCell>
+                        <TableCell className="font-mono text-sm text-right">{u.email}</TableCell>
+                        <TableCell className="text-right">{u.display_name || '-'}</TableCell>
+                        <TableCell className="text-right">{getRoleBadge(u.role)}</TableCell>
+                        <TableCell className="text-right">
                           {u.is_active ? (
                             <Badge variant="default" className="gap-1">
                               <UserCheck className="h-3 w-3" />
@@ -356,8 +356,8 @@ export default function Users() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
+                        <TableCell className="text-left w-[120px]">
+                          <div className="flex justify-start gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
