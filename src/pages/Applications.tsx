@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Application, ApplicationField } from '@/types/application';
@@ -11,10 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, Plus, Pencil, Trash2, Home, Loader2, List, Settings, LogOut } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Pencil, Trash2, Loader2, List, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AppLayout } from '@/components/AppLayout';
 
 export default function Applications() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -39,13 +39,8 @@ export default function Applications() {
     is_required: false,
   });
 
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -261,66 +256,8 @@ export default function Applications() {
   };
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background" dir="rtl">
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
-          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            {/* Logo and Title */}
-            <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-lg bg-primary-foreground/20">
-                <Smartphone className="h-5 w-5" />
-              </div>
-              <span className="font-semibold text-lg">ניהול אפליקציות</span>
-            </div>
-
-            {/* Navigation and User */}
-            <div className="flex items-center gap-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/localization">
-                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                      <Home className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>חזרה לדף הראשי</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Separator */}
-              <div className="h-6 w-px bg-primary-foreground/30" />
-
-              {/* User Info and Logout */}
-              <div className="flex items-center gap-3">
-                {user && (
-                  <span className="text-sm font-medium">
-                    שלום, {user.displayName}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="gap-2 text-primary-foreground hover:bg-primary-foreground/20"
-                >
-                  <LogOut className="h-4 w-4" />
-                  יציאה
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="container mx-auto py-6 px-4 space-y-6">
-          <div className="mb-4">
-            <p className="text-muted-foreground">
-              נהל את כל האפליקציות והשדות שלהן במערכת
-            </p>
-          </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <AppLayout title="אפליקציות" description="נהל את כל האפליקציות והשדות שלהן במערכת">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Applications Card */}
           <Card>
             <CardHeader>
@@ -596,9 +533,7 @@ export default function Applications() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </div>
-    </TooltipProvider>
+    </AppLayout>
   );
 }
 

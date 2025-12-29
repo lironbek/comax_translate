@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface LocalizationGridProps {
   data: LocalizationRow[];
   onDataChange?: (data: LocalizationRow[]) => void;
-  selectedCultureCode?: string;
+  selectedCultureCodes?: string[];
 }
 
 interface EditingState {
@@ -26,7 +26,7 @@ interface EditingState {
   value: string;
 }
 
-export function LocalizationGrid({ data, onDataChange, selectedCultureCode }: LocalizationGridProps) {
+export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['he-IL', 'en-US'] }: LocalizationGridProps) {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [editValue, setEditValue] = useState('');
   const [localData, setLocalData] = useState(data);
@@ -302,8 +302,8 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode }: Lo
   };
 
   const handleExportJSON = () => {
-    // Use the selected culture code, or default to Hebrew if 'ALL' is selected
-    const exportCultureCode = selectedCultureCode === 'ALL' ? 'he-IL' : selectedCultureCode;
+    // Use the first selected culture code, or default to Hebrew if 'ALL' is selected
+    const exportCultureCode = selectedCultureCodes.includes('ALL') ? 'he-IL' : selectedCultureCodes[0] || 'he-IL';
     const languageName = SUPPORTED_LANGUAGES.find(l => l.code === exportCultureCode)?.name || exportCultureCode;
     
     console.log(`📦 Exporting JSON for language: ${languageName} (${exportCultureCode})`);
@@ -334,11 +334,11 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode }: Lo
     });
   };
 
-  // Filter languages based on selected culture code
-  // Always show Hebrew (he-IL) + selected language (if not Hebrew)
-  const languages = selectedCultureCode && selectedCultureCode !== 'ALL'
-    ? SUPPORTED_LANGUAGES.filter(l => l.code === 'he-IL' || l.code === selectedCultureCode)
-    : SUPPORTED_LANGUAGES.filter(l => l.code !== 'ALL');
+  // Filter languages based on selected culture codes
+  // Show only selected languages, or all if 'ALL' is selected
+  const languages = selectedCultureCodes.includes('ALL')
+    ? SUPPORTED_LANGUAGES.filter(l => l.code !== 'ALL')
+    : SUPPORTED_LANGUAGES.filter(l => selectedCultureCodes.includes(l.code));
 
   return (
     <TooltipProvider>
@@ -378,7 +378,7 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode }: Lo
                   Key
                 </TableHead>
                 {languages.map((lang) => (
-                  <TableHead key={lang.code} className="min-w-[350px]" title={`תרגום ל-${lang.name}`}>
+                  <TableHead key={lang.code} className="min-w-[200px]" title={`תרגום ל-${lang.name}`}>
                     {lang.name}
                   </TableHead>
                 ))}
@@ -406,7 +406,7 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCode }: Lo
                       const value = translation?.value || '';
                       
                       return (
-                        <TableCell key={lang.code} className="min-w-[350px]">
+                        <TableCell key={lang.code} className="min-w-[200px]">
                           {isEditing ? (
                             <div className="flex gap-2">
                               <Input

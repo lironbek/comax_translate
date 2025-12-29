@@ -5,17 +5,15 @@ import { getLocalizationJSON } from '@/services/localizationApi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Code, Download, Copy, Check, Home, AlertCircle, LogOut } from 'lucide-react';
+import { Code, Download, Copy, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
 import { SUPPORTED_LANGUAGES } from '@/types/localization';
 import { supabase } from '@/integrations/supabase/client';
 import { Application } from '@/types/application';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AppLayout } from '@/components/AppLayout';
 
 export default function Api() {
   const [resourceType, setResourceType] = useState('SmartPhone_Picking_APP');
@@ -24,13 +22,8 @@ export default function Api() {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [applications, setApplications] = useState<Application[]>([]);
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -115,60 +108,8 @@ export default function Api() {
   };
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background" dir="rtl">
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
-          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            {/* Logo and Title */}
-            <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-lg bg-primary-foreground/20">
-                <Code className="h-5 w-5" />
-              </div>
-              <span className="font-semibold text-lg">API - ייצוא נתונים</span>
-            </div>
-
-            {/* Navigation and User */}
-            <div className="flex items-center gap-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/localization">
-                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                      <Home className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>חזרה לדף הראשי</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Separator */}
-              <div className="h-6 w-px bg-primary-foreground/30" />
-
-              {/* User Info and Logout */}
-              <div className="flex items-center gap-3">
-                {user && (
-                  <span className="text-sm font-medium">
-                    שלום, {user.displayName}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="gap-2 text-primary-foreground hover:bg-primary-foreground/20"
-                >
-                  <LogOut className="h-4 w-4" />
-                  יציאה
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="container mx-auto py-6 px-4 space-y-6">
-        <Card>
+    <AppLayout title="API" description="ייצוא נתוני תרגום בפורמט JSON">
+      <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
               <Code className="h-6 w-6" />
@@ -256,9 +197,7 @@ export default function Api() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
-    </TooltipProvider>
+    </AppLayout>
   );
 }
 

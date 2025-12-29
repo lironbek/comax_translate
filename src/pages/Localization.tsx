@@ -4,21 +4,19 @@ import { SearchForm } from '@/components/localization/SearchForm';
 import { LocalizationGrid } from '@/components/localization/LocalizationGrid';
 import { AuditLogView } from '@/components/localization/AuditLogView';
 import { SearchFilters, LocalizationResource, LocalizationRow } from '@/types/localization';
-import { Languages, History, LogOut, Loader2, Code, Users, Smartphone, Globe } from 'lucide-react';
+import { Languages, History, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
+import { AppLayout } from '@/components/AppLayout';
 
 export default function Localization() {
   const [allData, setAllData] = useState<LocalizationRow[]>([]);
   const [filteredData, setFilteredData] = useState<LocalizationRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCultureCode, setSelectedCultureCode] = useState<string>('ALL');
-  const { user, logout, isAuthenticated } = useAuth();
+  const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['he-IL', 'en-US']);
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,11 +79,6 @@ export default function Localization() {
     }
   }, [isAuthenticated]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
-
   const handleSearch = (filters: SearchFilters) => {
     let results = [...allData];
 
@@ -133,102 +126,9 @@ export default function Localization() {
   };
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background" dir="rtl">
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
-          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            {/* Logo and Title */}
-            <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-lg bg-primary-foreground/20">
-                <Languages className="h-5 w-5" />
-              </div>
-              <span className="font-semibold text-lg">Comax - ניהול תרגומים</span>
-            </div>
-
-            {/* Navigation */}
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/languages">
-                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                      <Globe className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>שפות</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/users">
-                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                      <Users className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>משתמשים</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/api">
-                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                      <Code className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>API</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/applications">
-                    <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                      <Smartphone className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>אפליקציות</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Separator */}
-              <div className="h-6 w-px bg-primary-foreground/30 mx-1" />
-
-              {/* User Info and Logout */}
-              <div className="flex items-center gap-3">
-                {user && (
-                  <span className="text-sm font-medium">
-                    שלום, {user.displayName}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="gap-2 text-primary-foreground hover:bg-primary-foreground/20"
-                >
-                  <LogOut className="h-4 w-4" />
-                  יציאה
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="container mx-auto py-6 px-4 space-y-6">
-          <div className="mb-4">
-            <p className="text-muted-foreground">
-              ניהול תרגומים לכל האפליקציות והשפות
-            </p>
-          </div>
-
-          <Tabs defaultValue="translations" className="space-y-4">
+    <AppLayout title="תרגומים" description="ניהול תרגומים לכל האפליקציות והשפות">
+      <Tabs defaultValue="translations" className="space-y-4">
+        <div className="flex justify-start">
           <TabsList>
             <TabsTrigger value="translations" className="gap-2">
               <Languages className="h-4 w-4" />
@@ -239,32 +139,31 @@ export default function Localization() {
               לוג פעילות
             </TabsTrigger>
           </TabsList>
+        </div>
 
-          <TabsContent value="translations" className="space-y-4">
-            <SearchForm
-              onSearch={handleSearch}
-              onCultureCodesChange={(codes) => setSelectedCultureCode(codes[0] || 'ALL')}
-            />
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="mr-2 text-muted-foreground">טוען נתונים...</span>
-              </div>
-            ) : (
+        <TabsContent value="translations" className="space-y-4">
+          <SearchForm
+            onSearch={handleSearch}
+            onCultureCodesChange={setSelectedCultureCodes}
+          />
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="mr-2 text-muted-foreground">טוען נתונים...</span>
+            </div>
+          ) : (
             <LocalizationGrid
               data={filteredData}
               onDataChange={handleDataChange}
-              selectedCultureCode={selectedCultureCode}
+              selectedCultureCodes={selectedCultureCodes}
             />
-            )}
-          </TabsContent>
+          )}
+        </TabsContent>
 
-          <TabsContent value="audit">
-            <AuditLogView />
-          </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </TooltipProvider>
+        <TabsContent value="audit">
+          <AuditLogView />
+        </TabsContent>
+      </Tabs>
+    </AppLayout>
   );
 }

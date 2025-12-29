@@ -27,7 +27,7 @@ export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) 
     resourceValue: '',
     onlyEmptyValues: false,
   });
-  const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['ALL']);
+  const [selectedCultureCodes, setSelectedCultureCodes] = useState<string[]>(['he-IL', 'en-US']);
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
 
@@ -44,6 +44,11 @@ export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) 
     };
 
     fetchApplications();
+  }, []);
+
+  // Notify parent of initial culture codes
+  useEffect(() => {
+    onCultureCodesChange?.(selectedCultureCodes);
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -97,9 +102,9 @@ export function SearchForm({ onSearch, onCultureCodesChange }: SearchFormProps) 
   return (
     <TooltipProvider>
       <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardContent className="py-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="space-y-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
