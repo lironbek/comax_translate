@@ -39,8 +39,21 @@ const Index = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background" dir="rtl">
-      <Card className="w-full max-w-md mx-4">
+    <div
+      className="flex min-h-screen items-center justify-center bg-background relative"
+      dir="rtl"
+      style={{
+        backgroundImage: 'url(/login-bg.jpeg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Overlay for better readability - high transparency */}
+      <div className="absolute inset-0 bg-white/85" />
+      
+      {/* Login card */}
+      <Card className="w-full max-w-md mx-4 relative z-10 shadow-2xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="p-3 rounded-xl bg-primary text-primary-foreground">
