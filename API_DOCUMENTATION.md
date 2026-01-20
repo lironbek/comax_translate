@@ -59,12 +59,13 @@ GET /rest/v1/localization_resources
 
 ### Culture Codes (Languages)
 
-| Value | Language |
-|-------|----------|
-| `he-IL` | Hebrew |
-| `en-US` | English |
-| `ro-RO` | Romanian |
-| `th-TH` | Thai |
+| Value | Language | Native Name |
+|-------|----------|-------------|
+| `he-IL` | Hebrew | עברית |
+| `en-US` | English | English |
+| `ar-SA` | Arabic | العربية |
+| `ro-RO` | Romanian | Română |
+| `th-TH` | Thai | ไทย |
 
 ---
 
@@ -108,7 +109,28 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 GET https://clfcuadlkfpawkpnehdq.supabase.co/rest/v1/localization_resources?select=resource_key,resource_value&resource_type=eq.Warehouse_Management_APP&culture_code=eq.en-US&order=resource_key.asc
 ```
 
-### Example 3: Get all fields (full record)
+### Example 3: Get Arabic translations for SmartPhone Picking App
+
+**Request:**
+```http
+GET https://clfcuadlkfpawkpnehdq.supabase.co/rest/v1/localization_resources?select=resource_key,resource_value&resource_type=eq.SmartPhone_Picking_APP&culture_code=eq.ar-SA&order=resource_key.asc
+```
+
+### Example 4: Get Romanian translations
+
+**Request:**
+```http
+GET https://clfcuadlkfpawkpnehdq.supabase.co/rest/v1/localization_resources?select=resource_key,resource_value&resource_type=eq.SmartPhone_Picking_APP&culture_code=eq.ro-RO&order=resource_key.asc
+```
+
+### Example 5: Get Thai translations
+
+**Request:**
+```http
+GET https://clfcuadlkfpawkpnehdq.supabase.co/rest/v1/localization_resources?select=resource_key,resource_value&resource_type=eq.SmartPhone_Picking_APP&culture_code=eq.th-TH&order=resource_key.asc
+```
+
+### Example 6: Get all fields (full record)
 
 **Request:**
 ```http
