@@ -5,7 +5,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = 'https://cbblwihayjkteqdgjevl.supabase.co';
+const supabaseUrl = 'https://clfcuadlkfpawkpnehdq.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiYmx3aWhheWprdGVxZGdqZXZsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc5NzE3NywiZXhwIjoyMDgxMzczMTc3fQ.YOUR_SERVICE_ROLE_KEY'; // You need to replace this with your service role key
 
 const supabase = createClient(supabaseUrl, supabaseKey);
