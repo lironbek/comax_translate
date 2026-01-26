@@ -284,7 +284,7 @@ export default function Applications() {
     }
   };
 
-  // Sync all fields from selected app to localization_resources
+  // Sync all fields from selected app to localization_resources (optimized - only 2 queries)
   const handleSyncFields = async () => {
     if (!selectedApp || appFields.length === 0) {
       toast.error('אין שדות לסנכרון');
@@ -293,44 +293,51 @@ export default function Applications() {
 
     setIsSyncing(true);
     const supportedLanguages = ['he-IL', 'en-US', 'ro-RO', 'th-TH', 'ar-SA'];
-    let synced = 0;
-    let skipped = 0;
 
     try {
+      // Step 1: Fetch ALL existing entries for this app in ONE query
+      const { data: existingEntries, error: fetchError } = await supabase
+        .from('localization_resources')
+        .select('resource_key, culture_code')
+        .eq('resource_type', selectedApp.application_code);
+
+      if (fetchError) throw fetchError;
+
+      // Step 2: Build a Set of existing keys for fast lookup
+      const existingKeys = new Set(
+        (existingEntries || []).map(e => `${e.resource_key}|${e.culture_code}`)
+      );
+
+      // Step 3: Find all missing entries
+      const missingEntries: Array<{
+        resource_type: string;
+        culture_code: string;
+        resource_key: string;
+        resource_value: string;
+      }> = [];
+
       for (const field of appFields) {
         for (const cultureCode of supportedLanguages) {
-          // Check if entry already exists
-          const { data: existing } = await supabase
-            .from('localization_resources')
-            .select('id')
-            .eq('resource_type', selectedApp.application_code)
-            .eq('culture_code', cultureCode)
-            .eq('resource_key', field.field_key)
-            .maybeSingle();
-
-          if (existing) {
-            skipped++;
-            continue;
-          }
-
-          // Insert new entry
-          const { error } = await supabase
-            .from('localization_resources')
-            .insert({
+          const key = `${field.field_key}|${cultureCode}`;
+          if (!existingKeys.has(key)) {
+            missingEntries.push({
               resource_type: selectedApp.application_code,
               culture_code: cultureCode,
               resource_key: field.field_key,
               resource_value: cultureCode === 'he-IL' ? field.field_name : '',
             });
-
-          if (!error) {
-            synced++;
           }
         }
       }
 
-      if (synced > 0) {
-        toast.success(`סונכרנו ${synced} רשומות חדשות לטבלת התרגומים`);
+      // Step 4: Insert all missing entries in ONE batch
+      if (missingEntries.length > 0) {
+        const { error: insertError } = await supabase
+          .from('localization_resources')
+          .insert(missingEntries);
+
+        if (insertError) throw insertError;
+        toast.success(`סונכרנו ${missingEntries.length} רשומות חדשות לטבלת התרגומים`);
       } else {
         toast.info('כל השדות כבר קיימים בטבלת התרגומים');
       }
