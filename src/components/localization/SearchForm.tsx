@@ -318,7 +318,11 @@ export function SearchForm({ onSearch, onCultureCodesChange, onResourceTypesChan
                   id="resourceKey"
                   placeholder="Search by key..."
                   value={filters.resourceKey}
-                  onChange={(e) => setFilters({ ...filters, resourceKey: e.target.value })}
+                  onChange={(e) => {
+                    const newFilters = { ...filters, resourceKey: e.target.value };
+                    setFilters(newFilters);
+                    onSearch(newFilters);
+                  }}
                 />
               </div>
 
@@ -335,7 +339,11 @@ export function SearchForm({ onSearch, onCultureCodesChange, onResourceTypesChan
                   id="resourceValue"
                   placeholder="Search by value..."
                   value={filters.resourceValue}
-                  onChange={(e) => setFilters({ ...filters, resourceValue: e.target.value })}
+                  onChange={(e) => {
+                    const newFilters = { ...filters, resourceValue: e.target.value };
+                    setFilters(newFilters);
+                    onSearch(newFilters);
+                  }}
                 />
               </div>
             </div>
@@ -348,9 +356,11 @@ export function SearchForm({ onSearch, onCultureCodesChange, onResourceTypesChan
                       <Checkbox
                         id="onlyEmpty"
                         checked={filters.onlyEmptyValues}
-                        onCheckedChange={(checked) =>
-                          setFilters({ ...filters, onlyEmptyValues: checked === true })
-                        }
+                        onCheckedChange={(checked) => {
+                          const newFilters = { ...filters, onlyEmptyValues: checked === true };
+                          setFilters(newFilters);
+                          onSearch(newFilters);
+                        }}
                       />
                       <Label
                         htmlFor="onlyEmpty"
