@@ -138,7 +138,7 @@ export default function Applications() {
 
   const handleFieldSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedApp || !fieldFormData.field_key.trim() || !fieldFormData.field_name.trim()) {
       toast.error('יש למלא מפתח ושם שדה');
       return;
@@ -159,6 +159,7 @@ export default function Applications() {
         if (error) throw error;
         toast.success('השדה עודכן בהצלחה');
       } else {
+        // Insert into application_fields
         const { error } = await supabase
           .from('application_fields')
           .insert({
@@ -170,6 +171,24 @@ export default function Applications() {
           });
 
         if (error) throw error;
+
+        // Also create initial entry in localization_resources for Hebrew
+        // This ensures the key appears in the translations page
+        const { error: localizationError } = await supabase
+          .from('localization_resources')
+          .insert({
+            resource_type: selectedApp.application_code,
+            culture_code: 'he-IL',
+            resource_key: fieldFormData.field_key,
+            resource_value: fieldFormData.field_name, // Use Hebrew name as initial value
+          });
+
+        if (localizationError) {
+          // If localization insert fails (e.g., duplicate), just log it
+          // The field was still created successfully
+          console.warn('Note: Could not create localization entry:', localizationError);
+        }
+
         toast.success('השדה נוסף בהצלחה');
       }
 
@@ -257,7 +276,7 @@ export default function Applications() {
 
   return (
     <AppLayout title="אפליקציות" description="נהל את כל האפליקציות והשדות שלהן במערכת">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_2fr] gap-6">
           {/* Applications Card */}
           <Card>
             <CardHeader>
@@ -484,20 +503,21 @@ export default function Applications() {
                   אין שדות לאפליקציה זו. לחץ על "הוסף שדה" כדי להתחיל.
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>מפתח</TableHead>
-                      <TableHead>שם</TableHead>
-                      <TableHead>חובה</TableHead>
-                      <TableHead className="text-right">פעולות</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">מפתח</TableHead>
+                        <TableHead className="whitespace-nowrap">שם</TableHead>
+                        <TableHead className="whitespace-nowrap">חובה</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">פעולות</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                     {appFields.map((field) => (
                       <TableRow key={field.id}>
-                        <TableCell className="font-mono text-sm">{field.field_key}</TableCell>
-                        <TableCell>{field.field_name}</TableCell>
+                        <TableCell className="font-mono text-sm max-w-[200px] truncate" title={field.field_key}>{field.field_key}</TableCell>
+                        <TableCell className="max-w-[150px] truncate" title={field.field_name}>{field.field_name}</TableCell>
                         <TableCell>
                           {field.is_required ? (
                             <Badge variant="default">חובה</Badge>
@@ -527,8 +547,9 @@ export default function Applications() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
