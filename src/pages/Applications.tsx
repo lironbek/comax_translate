@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Loader2, List, Settings } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, List, Settings, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AppLayout } from '@/components/AppLayout';
@@ -25,6 +25,7 @@ export default function Applications() {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [appFields, setAppFields] = useState<ApplicationField[]>([]);
   const [editingField, setEditingField] = useState<ApplicationField | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const [appFormData, setAppFormData] = useState({
     application_code: '',
@@ -172,24 +173,33 @@ export default function Applications() {
 
         if (error) throw error;
 
-        // Also create initial entry in localization_resources for Hebrew
-        // This ensures the key appears in the translations page
+        // Create localization entries for all supported languages
+        // This ensures the key appears in the translations page regardless of filter
+        const supportedLanguages = ['he-IL', 'en-US', 'ro-RO', 'th-TH', 'ar-SA'];
+        const localizationEntries = supportedLanguages.map(cultureCode => ({
+          resource_type: selectedApp.application_code,
+          culture_code: cultureCode,
+          resource_key: fieldFormData.field_key,
+          resource_value: cultureCode === 'he-IL' ? fieldFormData.field_name : '', // Hebrew gets the name, others start empty
+        }));
+
+        // Insert localization entries - use insert instead of upsert for reliability
         const { error: localizationError } = await supabase
           .from('localization_resources')
-          .insert({
-            resource_type: selectedApp.application_code,
-            culture_code: 'he-IL',
-            resource_key: fieldFormData.field_key,
-            resource_value: fieldFormData.field_name, // Use Hebrew name as initial value
-          });
+          .insert(localizationEntries);
 
         if (localizationError) {
-          // If localization insert fails (e.g., duplicate), just log it
-          // The field was still created successfully
-          console.warn('Note: Could not create localization entry:', localizationError);
+          // If it's a duplicate key error, that's OK - the entries already exist
+          if (localizationError.code === '23505') {
+            console.log('Localization entries already exist');
+            toast.success('השדה נוסף בהצלחה');
+          } else {
+            console.warn('Could not create localization entries:', localizationError);
+            toast.warning('השדה נוסף, אך לא נוצרו רשומות בטבלת התרגומים.');
+          }
+        } else {
+          toast.success('השדה נוסף בהצלחה ומופיע גם בעמוד התרגומים');
         }
-
-        toast.success('השדה נוסף בהצלחה');
       }
 
       setIsFieldDialogOpen(false);
@@ -271,6 +281,64 @@ export default function Applications() {
     } catch (error) {
       toast.error('שגיאה במחיקת השדה');
       console.error('Error:', error);
+    }
+  };
+
+  // Sync all fields from selected app to localization_resources
+  const handleSyncFields = async () => {
+    if (!selectedApp || appFields.length === 0) {
+      toast.error('אין שדות לסנכרון');
+      return;
+    }
+
+    setIsSyncing(true);
+    const supportedLanguages = ['he-IL', 'en-US', 'ro-RO', 'th-TH', 'ar-SA'];
+    let synced = 0;
+    let skipped = 0;
+
+    try {
+      for (const field of appFields) {
+        for (const cultureCode of supportedLanguages) {
+          // Check if entry already exists
+          const { data: existing } = await supabase
+            .from('localization_resources')
+            .select('id')
+            .eq('resource_type', selectedApp.application_code)
+            .eq('culture_code', cultureCode)
+            .eq('resource_key', field.field_key)
+            .maybeSingle();
+
+          if (existing) {
+            skipped++;
+            continue;
+          }
+
+          // Insert new entry
+          const { error } = await supabase
+            .from('localization_resources')
+            .insert({
+              resource_type: selectedApp.application_code,
+              culture_code: cultureCode,
+              resource_key: field.field_key,
+              resource_value: cultureCode === 'he-IL' ? field.field_name : '',
+            });
+
+          if (!error) {
+            synced++;
+          }
+        }
+      }
+
+      if (synced > 0) {
+        toast.success(`סונכרנו ${synced} רשומות חדשות לטבלת התרגומים`);
+      } else {
+        toast.info('כל השדות כבר קיימים בטבלת התרגומים');
+      }
+    } catch (error) {
+      toast.error('שגיאה בסנכרון השדות');
+      console.error('Error:', error);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -386,7 +454,7 @@ export default function Applications() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          {user?.email === 'lironbe88@gmail.com' && (
+                          {(user?.email === 'lironbek88@gmail.com' || user?.role === 'admin') && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -418,16 +486,30 @@ export default function Applications() {
                   </CardDescription>
                 </div>
                 {selectedApp && (
-                  <Dialog open={isFieldDialogOpen} onOpenChange={setIsFieldDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button onClick={() => {
-                        setEditingField(null);
-                        setFieldFormData({ field_key: '', field_name: '', description: '', is_required: false });
-                      }}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        הוסף שדה
-                      </Button>
-                    </DialogTrigger>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleSyncFields}
+                      disabled={isSyncing || appFields.length === 0}
+                      title="סנכרן שדות לטבלת התרגומים"
+                    >
+                      {isSyncing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      סנכרון
+                    </Button>
+                    <Dialog open={isFieldDialogOpen} onOpenChange={setIsFieldDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button onClick={() => {
+                          setEditingField(null);
+                          setFieldFormData({ field_key: '', field_name: '', description: '', is_required: false });
+                        }}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          הוסף שדה
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>{editingField ? 'ערוך שדה' : 'הוסף שדה חדש'}</DialogTitle>
@@ -488,7 +570,8 @@ export default function Applications() {
                         </DialogFooter>
                       </form>
                     </DialogContent>
-                  </Dialog>
+                    </Dialog>
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -534,7 +617,7 @@ export default function Applications() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            {user?.email === 'lironbe88@gmail.com' && (
+                            {(user?.email === 'lironbek88@gmail.com' || user?.role === 'admin') && (
                               <Button
                                 variant="ghost"
                                 size="sm"
