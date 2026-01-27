@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel
+.vercel/
+
+# Test results
+test-results/
+playwright-report/
+coverage/
+
+# Temporary files
+.temp/
+*.tmp
+
+# Local settings
+.claude/settings.local.json
