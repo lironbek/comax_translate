@@ -66,6 +66,8 @@ export type Database = {
           created_at: string
           culture_code: string
           id: string
+          order_remarks: number | null
+          organization_id: string | null
           resource_key: string
           resource_type: string
           resource_value: string | null
@@ -75,6 +77,8 @@ export type Database = {
           created_at?: string
           culture_code: string
           id?: string
+          order_remarks?: number | null
+          organization_id?: string | null
           resource_key: string
           resource_type: string
           resource_value?: string | null
@@ -84,6 +88,8 @@ export type Database = {
           created_at?: string
           culture_code?: string
           id?: string
+          order_remarks?: number | null
+          organization_id?: string | null
           resource_key?: string
           resource_type?: string
           resource_value?: string | null

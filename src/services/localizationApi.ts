@@ -1,25 +1,39 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export interface LocalizationRecord {
+  id: string;
+  resource_key: string;
+  resource_type: string;
+  culture_code: string;
+  resource_value: string | null;
+  organization_id: string | null;
+  order_remarks: number | null;
+  created_at: string;
+  updated_at: string;
+  english_value?: string;
+}
+
+// Keep old interface for backwards compatibility
 export interface LocalizationKeyValue {
   key: string;
   value: string;
 }
 
 /**
- * Get localization data in key-value format for a specific resource type and culture
- * Key = English translation (en-US), Value = Selected language translation
+ * Get localization data with all fields for a specific resource type and culture
+ * Includes english_value field for reference
  */
 export async function getLocalizationJSON(
   resourceType: string = 'SmartPhone_Picking_APP',
   cultureCode: string = 'he-IL'
-): Promise<LocalizationKeyValue[]> {
+): Promise<LocalizationRecord[]> {
   try {
     console.log('🌍 Fetching localization:', { resourceType, cultureCode });
 
-    // Get translations for the selected language
+    // Get all fields for the selected language
     const { data: selectedLangData, error: selectedError } = await supabase
       .from('localization_resources')
-      .select('resource_key, resource_value')
+      .select('*')
       .eq('resource_type', resourceType)
       .eq('culture_code', cultureCode)
       .order('resource_key', { ascending: true });
@@ -31,7 +45,7 @@ export async function getLocalizationJSON(
 
     console.log(`✅ Found ${selectedLangData?.length || 0} translations for ${cultureCode}`);
 
-    // Get English translations for the keys
+    // Get English translations for reference
     const { data: englishData, error: englishError } = await supabase
       .from('localization_resources')
       .select('resource_key, resource_value')
@@ -51,10 +65,10 @@ export async function getLocalizationJSON(
       (englishData || []).map(item => [item.resource_key, item.resource_value || item.resource_key])
     );
 
-    // Combine: key = English, value = Selected language
+    // Add english_value to each record
     const result = (selectedLangData || []).map((item) => ({
-      key: englishMap.get(item.resource_key) || item.resource_key, // English translation or fallback to resource_key
-      value: item.resource_value || '',
+      ...item,
+      english_value: englishMap.get(item.resource_key) || item.resource_key,
     }));
 
     console.log('📦 Result sample (first 3):', result.slice(0, 3));
