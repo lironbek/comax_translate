@@ -263,21 +263,38 @@ export default function Applications() {
   };
 
   const handleDeleteField = async (id: string) => {
-    if (!confirm('האם אתה בטוח שברצונך למחוק את השדה?')) {
+    if (!confirm('האם אתה בטוח שברצונך למחוק את השדה? פעולה זו תמחק גם את כל התרגומים שלו.')) {
       return;
     }
 
     try {
+      // First, get the field details to know the field_key
+      const fieldToDelete = appFields.find(f => f.id === id);
+      if (!fieldToDelete || !selectedApp) {
+        throw new Error('Field not found');
+      }
+
+      // Delete from application_fields
       const { error } = await supabase
         .from('application_fields')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('השדה נמחק בהצלחה');
-      if (selectedApp) {
-        fetchAppFields(selectedApp.id);
+
+      // Also delete all related entries from localization_resources
+      const { error: localizationError } = await supabase
+        .from('localization_resources')
+        .delete()
+        .eq('resource_type', selectedApp.application_code)
+        .eq('resource_key', fieldToDelete.field_key);
+
+      if (localizationError) {
+        console.warn('Could not delete localization entries:', localizationError);
       }
+
+      toast.success('השדה והתרגומים שלו נמחקו בהצלחה');
+      fetchAppFields(selectedApp.id);
     } catch (error) {
       toast.error('שגיאה במחיקת השדה');
       console.error('Error:', error);
