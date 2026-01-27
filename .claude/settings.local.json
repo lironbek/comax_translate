@@ -28,7 +28,9 @@
       "Bash(echo:*)",
       "Bash(dir /b .claude)",
       "Bash(dir /s /b \"%APPDATA%\\\\Claude\\\\*mcp*\")",
-      "Bash(dir /s /b \"%USERPROFILE%\\\\.config\\\\claude\\\\*mcp*\")"
+      "Bash(dir /s /b \"%USERPROFILE%\\\\.config\\\\claude\\\\*mcp*\")",
+      "Bash(find:*)",
+      "Bash(lsof:*)"
     ]
   }
 }
