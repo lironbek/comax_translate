@@ -26,27 +26,46 @@ export default function Localization() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Load data from Supabase
+  // Load data from Supabase with pagination to get ALL records
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('localization_resources')
-          .select('*')
-          .order('resource_key', { ascending: true })
-          .order('culture_code', { ascending: true });
+        // Fetch all records using pagination (Supabase default limit is 1000)
+        let allRecords: any[] = [];
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
 
-        if (error) {
-          toast.error('שגיאה בטעינת הנתונים');
-          console.error('Error fetching data:', error);
-          return;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('localization_resources')
+            .select('*')
+            .order('resource_key', { ascending: true })
+            .order('culture_code', { ascending: true })
+            .range(from, from + pageSize - 1);
+
+          if (error) {
+            toast.error('שגיאה בטעינת הנתונים');
+            console.error('Error fetching data:', error);
+            return;
+          }
+
+          if (data && data.length > 0) {
+            allRecords = [...allRecords, ...data];
+            from += pageSize;
+            hasMore = data.length === pageSize;
+          } else {
+            hasMore = false;
+          }
         }
+
+        console.log('Total records fetched:', allRecords.length);
 
         // Group by resource_key
         const groupedData = new Map<string, LocalizationRow>();
 
-        (data || []).forEach((item) => {
+        allRecords.forEach((item) => {
           const key = item.resource_key;
           if (!groupedData.has(key)) {
             groupedData.set(key, {
@@ -64,6 +83,7 @@ export default function Localization() {
         });
 
         const resources: LocalizationRow[] = Array.from(groupedData.values());
+        console.log('Total unique keys:', resources.length);
 
         setAllData(resources);
         setFilteredData(resources);

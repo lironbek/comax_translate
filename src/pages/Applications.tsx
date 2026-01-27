@@ -180,23 +180,20 @@ export default function Applications() {
           resource_type: selectedApp.application_code,
           culture_code: cultureCode,
           resource_key: fieldFormData.field_key,
-          resource_value: cultureCode === 'he-IL' ? fieldFormData.field_name : '', // Hebrew gets the name, others start empty
+          resource_value: cultureCode === 'he-IL' ? fieldFormData.field_name : '',
         }));
 
-        // Insert localization entries - use insert instead of upsert for reliability
+        // Use upsert to handle duplicates gracefully
         const { error: localizationError } = await supabase
           .from('localization_resources')
-          .insert(localizationEntries);
+          .upsert(localizationEntries, {
+            onConflict: 'resource_type,culture_code,resource_key',
+            ignoreDuplicates: true
+          });
 
         if (localizationError) {
-          // If it's a duplicate key error, that's OK - the entries already exist
-          if (localizationError.code === '23505') {
-            console.log('Localization entries already exist');
-            toast.success('השדה נוסף בהצלחה');
-          } else {
-            console.warn('Could not create localization entries:', localizationError);
-            toast.warning('השדה נוסף, אך לא נוצרו רשומות בטבלת התרגומים.');
-          }
+          console.warn('Could not create localization entries:', localizationError);
+          toast.warning('השדה נוסף, אך לא נוצרו רשומות בטבלת התרגומים.');
         } else {
           toast.success('השדה נוסף בהצלחה ומופיע גם בעמוד התרגומים');
         }
@@ -301,7 +298,7 @@ export default function Applications() {
     }
   };
 
-  // Sync all fields from selected app to localization_resources (optimized - only 2 queries)
+  // Sync all fields from selected app to localization_resources
   const handleSyncFields = async () => {
     if (!selectedApp || appFields.length === 0) {
       toast.error('אין שדות לסנכרון');
@@ -311,6 +308,11 @@ export default function Applications() {
     setIsSyncing(true);
     const supportedLanguages = ['he-IL', 'en-US', 'ro-RO', 'th-TH', 'ar-SA'];
 
+    console.log('=== SYNC START ===');
+    console.log('Selected App:', selectedApp);
+    console.log('App Fields count:', appFields.length);
+    console.log('App Fields:', appFields.map(f => f.field_key));
+
     try {
       // Step 1: Fetch ALL existing entries for this app in ONE query
       const { data: existingEntries, error: fetchError } = await supabase
@@ -318,12 +320,17 @@ export default function Applications() {
         .select('resource_key, culture_code')
         .eq('resource_type', selectedApp.application_code);
 
-      if (fetchError) throw fetchError;
+      console.log('Existing entries for', selectedApp.application_code, ':', existingEntries?.length || 0);
+      if (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw fetchError;
+      }
 
       // Step 2: Build a Set of existing keys for fast lookup
       const existingKeys = new Set(
         (existingEntries || []).map(e => `${e.resource_key}|${e.culture_code}`)
       );
+      console.log('Existing keys set size:', existingKeys.size);
 
       // Step 3: Find all missing entries
       const missingEntries: Array<{
@@ -347,20 +354,59 @@ export default function Applications() {
         }
       }
 
-      // Step 4: Insert all missing entries in ONE batch
+      console.log('Missing entries count:', missingEntries.length);
       if (missingEntries.length > 0) {
-        const { error: insertError } = await supabase
-          .from('localization_resources')
-          .insert(missingEntries);
+        console.log('First 5 missing entries:', missingEntries.slice(0, 5));
+      }
 
-        if (insertError) throw insertError;
-        toast.success(`סונכרנו ${missingEntries.length} רשומות חדשות לטבלת התרגומים`);
+      // Step 4: Insert all missing entries one by one to avoid conflicts
+      if (missingEntries.length > 0) {
+        let successCount = 0;
+        let errorCount = 0;
+
+        // Insert in batches of 50
+        for (let i = 0; i < missingEntries.length; i += 50) {
+          const batch = missingEntries.slice(i, i + 50);
+          const { data, error: insertError } = await supabase
+            .from('localization_resources')
+            .insert(batch)
+            .select();
+
+          if (insertError) {
+            console.error('Insert error for batch', i, ':', insertError);
+            // If duplicate error, try one by one
+            if (insertError.code === '23505') {
+              for (const entry of batch) {
+                const { error: singleError } = await supabase
+                  .from('localization_resources')
+                  .insert(entry);
+                if (singleError) {
+                  if (singleError.code !== '23505') {
+                    console.error('Single insert error:', singleError);
+                  }
+                  errorCount++;
+                } else {
+                  successCount++;
+                }
+              }
+            } else {
+              throw insertError;
+            }
+          } else {
+            successCount += batch.length;
+            console.log('Batch', i, 'inserted successfully, data:', data?.length);
+          }
+        }
+
+        console.log('=== SYNC COMPLETE ===');
+        console.log('Success:', successCount, 'Errors:', errorCount);
+        toast.success(`סונכרנו ${successCount} רשומות חדשות לטבלת התרגומים`);
       } else {
         toast.info('כל השדות כבר קיימים בטבלת התרגומים');
       }
-    } catch (error) {
-      toast.error('שגיאה בסנכרון השדות');
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('=== SYNC ERROR ===', error);
+      toast.error(`שגיאה בסנכרון השדות: ${error.message || 'Unknown error'}`);
     } finally {
       setIsSyncing(false);
     }
