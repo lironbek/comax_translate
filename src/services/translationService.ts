@@ -7,26 +7,59 @@ interface TranslationResult {
 }
 
 /**
+ * Map culture codes to Google Translate language codes
+ */
+const LANGUAGE_MAP: Record<string, string> = {
+  'en-US': 'en',
+  'ro-RO': 'ro',
+  'th-TH': 'th',
+  'ar-SA': 'ar',
+  'ru-RU': 'ru',
+  'fr-FR': 'fr',
+  'de-DE': 'de',
+  'es-ES': 'es',
+  'it-IT': 'it',
+  'pt-BR': 'pt',
+  'zh-CN': 'zh-CN',
+  'zh-TW': 'zh-TW',
+  'ja-JP': 'ja',
+  'ko-KR': 'ko',
+  'hi-IN': 'hi',
+  'tr-TR': 'tr',
+  'pl-PL': 'pl',
+  'nl-NL': 'nl',
+  'vi-VN': 'vi',
+  'uk-UA': 'uk',
+  'fa-IR': 'fa',
+  'ur-PK': 'ur',
+};
+
+/**
+ * Get Google Translate language code from culture code
+ */
+function getTranslateLanguageCode(cultureCode: string): string {
+  // Check direct mapping
+  if (LANGUAGE_MAP[cultureCode]) {
+    return LANGUAGE_MAP[cultureCode];
+  }
+  // Extract language part from culture code (e.g., 'ru-RU' -> 'ru')
+  const langPart = cultureCode.split('-')[0];
+  return langPart || 'en';
+}
+
+/**
  * Translate text from Hebrew to target language using Google Translate API
  * Falls back to Playwright-based translation if API key is not available
  */
 export async function translateText(
   text: string,
-  targetLanguage: 'en-US' | 'ro-RO' | 'th-TH' | 'ar-SA'
+  targetLanguage: string
 ): Promise<TranslationResult> {
   if (!text || !text.trim()) {
     return { success: false, error: 'Text is empty' };
   }
 
-  // Map culture codes to Google Translate language codes
-  const languageMap: Record<string, string> = {
-    'en-US': 'en',
-    'ro-RO': 'ro',
-    'th-TH': 'th',
-    'ar-SA': 'ar',
-  };
-
-  const targetLang = languageMap[targetLanguage] || 'en';
+  const targetLang = getTranslateLanguageCode(targetLanguage);
 
   try {
     // Try using Google Translate API via proxy/translator service
@@ -73,7 +106,7 @@ export type TranslationProgressCallback = (progress: number, current: number, to
  * Translate all Hebrew translations to target languages with progress tracking
  */
 export async function translateAllHebrewToLanguagesWithProgress(
-  targetLanguages: ('en-US' | 'ro-RO' | 'th-TH' | 'ar-SA')[],
+  targetLanguages: string[],
   onProgress?: TranslationProgressCallback
 ): Promise<{ success: boolean; translated: number; errors: number; errorMessages: string[] }> {
   try {
@@ -204,7 +237,7 @@ export async function translateAllHebrewToLanguagesWithProgress(
  * Translate all Hebrew translations to target languages (without progress)
  */
 export async function translateAllHebrewToLanguages(
-  targetLanguages: ('en-US' | 'ro-RO' | 'th-TH' | 'ar-SA')[]
+  targetLanguages: string[]
 ): Promise<{ success: boolean; translated: number; errors: number; errorMessages: string[] }> {
   try {
     // Fetch all Hebrew translations

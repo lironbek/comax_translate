@@ -9,10 +9,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Search, X, ChevronDown, Check } from 'lucide-react';
-import { SearchFilters, SUPPORTED_LANGUAGES } from '@/types/localization';
+import { SearchFilters } from '@/types/localization';
 import { supabase } from '@/integrations/supabase/client';
 import { Application } from '@/types/application';
 import { cn } from '@/lib/utils';
+import { useLanguagesWithAll } from '@/hooks/useLanguages';
 
 interface SearchFormProps {
   onSearch: (filters: SearchFilters) => void;
@@ -33,6 +34,7 @@ export function SearchForm({ onSearch, onCultureCodesChange, onResourceTypesChan
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isResourceTypeOpen, setIsResourceTypeOpen] = useState(false);
+  const { languages: SUPPORTED_LANGUAGES } = useLanguagesWithAll();
 
   useEffect(() => {
     const fetchApplications = async () => {

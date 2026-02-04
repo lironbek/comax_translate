@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Code, Download, Copy, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { SUPPORTED_LANGUAGES } from '@/types/localization';
+import { useLanguages } from '@/hooks/useLanguages';
 import { supabase } from '@/integrations/supabase/client';
 import { Application } from '@/types/application';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ export default function Api() {
   const [applications, setApplications] = useState<Application[]>([]);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { languages: SUPPORTED_LANGUAGES } = useLanguages();
 
   useEffect(() => {
     if (!isAuthenticated) {

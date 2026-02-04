@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LocalizationRow, SUPPORTED_LANGUAGES } from '@/types/localization';
+import { LocalizationRow } from '@/types/localization';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { createAuditLog } from '@/services/auditService';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useLanguages } from '@/hooks/useLanguages';
 
 interface ColumnConfig {
   id: string;
@@ -42,6 +43,7 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['
   const [columnOrder, setColumnOrder] = useState<string[]>(['key', 'resourceType']);
   const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false);
   const { currentUser } = useCurrentUser();
+  const { languages: SUPPORTED_LANGUAGES } = useLanguages();
 
   // Update column order when selected culture codes change
   useEffect(() => {
@@ -320,15 +322,13 @@ export function LocalizationGrid({ data, onDataChange, selectedCultureCodes = ['
   };
 
   const handleExport = () => {
-    const headers = ['Resource Key', 'Resource Type', 'he-IL', 'en-US', 'ro-RO', 'th-TH', 'ar-SA'];
+    // Build headers dynamically from available languages
+    const languageCodes = SUPPORTED_LANGUAGES.map(l => l.code);
+    const headers = ['Resource Key', 'Resource Type', ...languageCodes];
     const rows = localData.map((item) => [
       item.resourceKey,
       item.resourceType,
-      item.translations['he-IL']?.value || '',
-      item.translations['en-US']?.value || '',
-      item.translations['ro-RO']?.value || '',
-      item.translations['th-TH']?.value || '',
-      item.translations['ar-SA']?.value || '',
+      ...languageCodes.map(code => item.translations[code]?.value || ''),
     ]);
 
     const csvContent = [headers, ...rows].map((row) => row.map(cell => `"${cell}"`).join(',')).join('\n');

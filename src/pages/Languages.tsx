@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { translateAllHebrewToLanguagesWithProgress } from '@/services/translationService';
 import { AppLayout } from '@/components/AppLayout';
+import { invalidateLanguagesCache } from '@/hooks/useLanguages';
 
 interface Language {
   id?: string;
@@ -158,6 +159,7 @@ export default function Languages() {
         if (error) throw error;
 
         setLanguages([...languages, data]);
+        invalidateLanguagesCache();
         toast.success(`שפה ${languageToAdd.name} נוספה בהצלחה`);
       } catch (err) {
         toast.error('שגיאה בהוספת השפה');
@@ -167,6 +169,7 @@ export default function Languages() {
       const updatedLanguages = [...languages, newLanguage];
       setLanguages(updatedLanguages);
       localStorage.setItem('comax_languages', JSON.stringify(updatedLanguages));
+      invalidateLanguagesCache();
       toast.success(`שפה ${languageToAdd.name} נוספה בהצלחה`);
     }
 
@@ -200,6 +203,7 @@ export default function Languages() {
       localStorage.setItem('comax_languages', JSON.stringify(updatedLanguages));
     }
 
+    invalidateLanguagesCache();
     toast.success(
       updatedLanguage.is_active
         ? `שפה ${language.name} הופעלה`
@@ -233,6 +237,7 @@ export default function Languages() {
       localStorage.setItem('comax_languages', JSON.stringify(updatedLanguages));
     }
 
+    invalidateLanguagesCache();
     toast.success(`שפה ${language.name} נמחקה`);
   };
 
@@ -253,7 +258,7 @@ export default function Languages() {
 
     try {
       const result = await translateAllHebrewToLanguagesWithProgress(
-        [language.code as 'en-US' | 'ro-RO' | 'th-TH' | 'ar-SA'],
+        [language.code],
         (progress) => {
           setTranslationProgress(progress);
         }
