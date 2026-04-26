@@ -12,6 +12,7 @@ import Organizations from "./pages/Organizations";
 import Users from "./pages/Users";
 import Applications from "./pages/Applications";
 import Languages from "./pages/Languages";
+import SsoCallback from "./pages/SsoCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/users" element={<Users />} />
               <Route path="/applications" element={<Applications />} />
               <Route path="/languages" element={<Languages />} />
+              <Route path="/sso/callback" element={<SsoCallback />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -12,6 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginFromSso: (ssoUser: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -106,13 +107,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginFromSso = (ssoUser: User) => {
+    setUser(ssoUser);
+    localStorage.setItem('comax_user', JSON.stringify(ssoUser));
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('comax_user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, isLoading }}>
+    <AuthContext.Provider value={{ user, login, loginFromSso, logout, isAuthenticated: !!user, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
